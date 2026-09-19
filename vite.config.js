@@ -3,6 +3,6 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
-  base: '/ustax/',
+  base: process.env.VITE_BASE_PATH || (process.env.GITHUB_ACTIONS ? '/ustax/' : '/'),
   plugins: [react(), tailwindcss()],
 });
