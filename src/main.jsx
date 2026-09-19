@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './styles.css';
+import { calculateMortgageLimits } from './utils/calculations.js';
 
 const money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 });
 const number = (value) => Math.max(0, Number(String(value).replace(/,/g, '')) || 0);
@@ -454,150 +455,16 @@ function App() {
   };
 
   const result = useMemo(() => {
-    const rows = displayLoans.map((loan) => {
-      const startAmount = number(loan.start);
-      const endAssumed = String(loan.end).trim() === '';
-      const endAmount = endAssumed ? startAmount : number(loan.end);
-      return { ...loan, startAmount, endAmount, endAssumed, avg: (startAmount + endAmount) / 2, interest: number(loan.interest) };
-    });
-    const outstanding = rows.reduce((sum, item) => sum + item.avg, 0);
-    const interest = rows.reduce((sum, item) => sum + item.interest, 0);
-    const federalLimit = rule === 'pre' ? 1000000 : 750000;
-
-    // First calculate the percentage, round to selected decimal places (1, 2, 3, 4, 5), then multiply with total Form 1098 interest
-    const rawFederalPercent = outstanding > 0 && outstanding > federalLimit ? (federalLimit / outstanding) * 100 : 100;
-    const federalPercent = outstanding > 0 && outstanding > federalLimit ? Number(rawFederalPercent.toFixed(decimals)) : 100;
-    const federalRatio = federalPercent / 100;
-    const federal = interest * federalRatio;
-
-    const stateCap = 1000000;
-    const rawStatePercent = outstanding > 0 && outstanding > stateCap ? (stateCap / outstanding) * 100 : 100;
-    const statePercent = outstanding > 0 && outstanding > stateCap ? Number(rawStatePercent.toFixed(decimals)) : 100;
-    const stateRatio = statePercent / 100;
-    const stateTotal = interest * stateRatio;
-    const stateAdditional = Math.max(0, stateTotal - federal);
-
-    return {
-      rows,
-      outstanding,
-      interest,
-      federalLimit,
-      federalPercent,
-      federalRatio,
-      federal,
-      stateCap,
-      statePercent,
-      stateRatio,
-      stateTotal,
-      stateAdditional,
+    return calculateMortgageLimits({
+      rule,
+      loanType,
+      loans: displayLoans,
       decimals,
-    };
-  }, [displayLoans, rule, decimals]);
+      descStyle,
+    });
+  }, [displayLoans, rule, loanType, decimals, descStyle]);
 
-  const lines = useMemo(() => {
-    if (descStyle === 'simple') {
-      const loanLines = result.rows.flatMap((item) => {
-        const avgText =
-          item.startAmount === item.endAmount || item.endAssumed
-            ? `${item.name} Avg Balance: ${fmt(item.avg)}`
-            : `${item.name} Avg Balance: (${fmt(item.startAmount)} + ${fmt(item.endAmount)}) ÷ 2 = ${fmt(item.avg)}`;
-        return [avgText, `${item.name} Form 1098 Interest: ${fmt(item.interest)}`];
-      });
-
-      const summaryLines = [];
-      if (result.rows.length > 1) {
-        summaryLines.push(
-          `Total Avg Balance: ${fmt(result.outstanding)}`,
-          `Total Form 1098 Interest: ${fmt(result.interest)}`
-        );
-      }
-
-      if (rule === 'pre') {
-        const fedLines =
-          result.outstanding > 1000000
-            ? [
-                `Pre-2017 Limit ($1,000,000): ${fmt(1000000)} ÷ ${fmt(result.outstanding)} = ${result.federalPercent.toFixed(decimals)}%`,
-                `Eligible Interest (Fed & State): ${fmt(result.interest)} × ${result.federalPercent.toFixed(decimals)}% = ${fmt(result.federal)}`,
-              ]
-            : [
-                `Pre-2017 Limit ($1,000,000): Within limit (100% eligible)`,
-                `Eligible Interest (Fed & State): ${fmt(result.federal)}`,
-              ];
-        return [...loanLines, ...summaryLines, ...fedLines];
-      }
-
-      // Post-2017
-      const fedLines =
-        result.outstanding > result.federalLimit
-          ? [
-              `Federal Limit ($750,000): ${fmt(result.federalLimit)} ÷ ${fmt(result.outstanding)} = ${result.federalPercent.toFixed(decimals)}%`,
-              `Federal Deductible: ${fmt(result.interest)} × ${result.federalPercent.toFixed(decimals)}% = ${fmt(result.federal)}`,
-            ]
-          : [
-              `Federal Limit ($750,000): Within limit (100% eligible)`,
-              `Federal Deductible: ${fmt(result.federal)}`,
-            ];
-
-      const stateLines = [];
-      if (result.stateAdditional > 0) {
-        if (result.outstanding > result.stateCap) {
-          stateLines.push(
-            `State Limit ($1,000,000): ${fmt(result.stateCap)} ÷ ${fmt(result.outstanding)} = ${result.statePercent.toFixed(decimals)}%`,
-            `State Deductible: ${fmt(result.interest)} × ${result.statePercent.toFixed(decimals)}% = ${fmt(result.stateTotal)}`
-          );
-        } else {
-          stateLines.push(`State Limit ($1,000,000): Within limit (100% eligible)`);
-        }
-        stateLines.push(`Additional State Deductible: ${fmt(result.stateTotal)} − ${fmt(result.federal)} = ${fmt(result.stateAdditional)}`);
-      } else {
-        stateLines.push(`Additional State Deductible: $0.00`);
-      }
-
-      return [...loanLines, ...summaryLines, ...fedLines, ...stateLines];
-    }
-
-    const loanLines = result.rows.flatMap((item) => [
-      item.endAssumed
-        ? `${item.name}: ending balance was not provided; using the beginning balance of ${fmt(item.startAmount)} as the ending balance. Average outstanding balance = (${fmt(item.startAmount)} + ${fmt(item.endAmount)}) ÷ 2 = ${fmt(item.avg)}.`
-        : `${item.name}: (${fmt(item.startAmount)} beginning balance + ${fmt(item.endAmount)} ending balance) ÷ 2 = ${fmt(item.avg)} average outstanding balance.`,
-      `${item.name} mortgage interest reported on Form 1098: ${fmt(item.interest)}.`,
-    ]);
-    const typeLabel = loanType === 'direct' ? 'Direct loan' : loanType === 'refinance' ? 'Refinance loans' : 'First and second loans';
-    const netLine = `${typeLabel} net mortgage outstanding amount = ${result.rows.map((r) => fmt(r.avg)).join(' + ')} = ${fmt(result.outstanding)}.`;
-    const totalLine = `Total mortgage interest = ${result.rows.map((r) => fmt(r.interest)).join(' + ')} = ${fmt(result.interest)}.`;
-
-    if (rule === 'pre') {
-      return [
-        ...loanLines,
-        netLine,
-        totalLine,
-        result.outstanding > 1000000
-          ? `Federal/state loan limit: ${fmt(1000000)} ÷ ${fmt(result.outstanding)} = ${result.federalPercent.toFixed(decimals)}%.`
-          : `Net mortgage is within the ${fmt(1000000)} pre-2017 loan limit; 100% of interest is eligible.`,
-        `Mortgage interest eligible for federal and state deduction = ${fmt(result.interest)} × ${result.federalPercent.toFixed(decimals)}% = ${fmt(result.federal)}.`,
-      ];
-    }
-
-    const federalExplanation =
-      result.outstanding > result.federalLimit
-        ? `Federal loan limit: ${fmt(result.federalLimit)} ÷ ${fmt(result.outstanding)} = ${result.federalPercent.toFixed(decimals)}%.`
-        : `Net mortgage is within the ${fmt(result.federalLimit)} federal loan limit; 100% of interest is eligible for federal.`;
-
-    const stateExplanation =
-      result.outstanding > result.stateCap
-        ? `State limit calculation: ${fmt(result.stateCap)} ÷ ${fmt(result.outstanding)} = ${result.statePercent.toFixed(decimals)}%; ${fmt(result.interest)} × ${result.statePercent.toFixed(decimals)}% = ${fmt(result.stateTotal)} total state-eligible interest.`
-        : `Net mortgage is within the ${fmt(result.stateCap)} state limit; state-eligible interest is ${fmt(result.interest)}.`;
-
-    return [
-      ...loanLines,
-      netLine,
-      totalLine,
-      federalExplanation,
-      `Federal mortgage interest eligible for deduction = ${fmt(result.interest)} × ${result.federalPercent.toFixed(decimals)}% = ${fmt(result.federal)}.`,
-      stateExplanation,
-      `Additional state mortgage interest eligible = ${fmt(result.stateTotal)} − ${fmt(result.federal)} = ${fmt(result.stateAdditional)}.`,
-    ];
-  }, [result, rule, loanType, decimals, descStyle]);
+  const lines = result.lines;
 
   const copy = async (line, id) => {
     await navigator.clipboard.writeText(line);
