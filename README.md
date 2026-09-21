@@ -86,9 +86,10 @@ The calculation pipeline follows four distinct mathematical phases defined in `s
 | **Case 2C** | 1st & 2nd Loans | `Average Balance L1 + Average Balance L2` |
 
 ### Phase 3: Federal Limitation (IRS Table 1)
-- **Within Limit** (`Debt ≤ Limit`): `100%` deductible.
+- **Within Limit** (`Debt ≤ Limit`): `100%` deductible (`Ratio = 1.0`).
 - **Over Limit** (`Debt > Limit`):
-  $$\text{Federal Ratio} = \text{round}\left(\frac{\text{Federal Cap}}{\text{Net Mortgage}} \times 100, \text{decimals}\right) \div 100$$
+  $$\text{Federal Ratio} = \text{round}\left(\frac{\text{Federal Cap}}{\text{Net Mortgage}}, \text{decimals}\right) \quad (\text{e.g. } 0.694 \text{ for 3 decimals})$$
+  $$\text{Federal Percentage} = \text{Federal Ratio} \times 100 \quad (\text{e.g. } 69.4\%)$$
   $$\text{Federal Deductible} = \text{Federal Ratio} \times \text{Total Form 1098 Interest}$$
 
 ### Phase 4: State Conformity & Gap Window
@@ -99,7 +100,8 @@ For post-2017 debt in states that retain the $1,000,000 cap:
   - State allows 100% of the interest.
   - **Additional State Deduction** = `Total Interest - Federal Deductible`.
 - **Case 4C** (`Debt > $1,000,000`):
-  $$\text{State Ratio} = \text{round}\left(\frac{\$1,000,000}{\text{Net Mortgage}} \times 100, \text{decimals}\right) \div 100$$
+  $$\text{State Ratio} = \text{round}\left(\frac{\$1,000,000}{\text{Net Mortgage}}, \text{decimals}\right) \quad (\text{e.g. } 0.926)$$
+  $$\text{State Percentage} = \text{State Ratio} \times 100 \quad (\text{e.g. } 92.6\%)$$
   $$\text{State Total} = \text{State Ratio} \times \text{Total Interest}$$
   $$\text{Additional State Deduction} = \text{State Total} - \text{Federal Deductible}$$
 
@@ -112,10 +114,10 @@ US-Tax produces copyable audit lines tailored for Drake Tax Schedule A explanati
 ```text
 Net Mortgage: $900,000.00
 Form 1098 Box 1 Interest: $45,000.00
-Federal Limit (Post-2017): $750,000.00 / $900,000.00 = 83.333%
-Federal Deductible (Sch A Line 8a): $37,499.85
-State Deductible (Within $1,000,000 cap): $45,000.00
-Additional State Deduction: $7,500.15
+Federal Limit ($750,000): $750,000.00 ÷ $900,000.00 = 0.833 (83.3%)
+Federal Deductible: $45,000.00 × 0.833 (83.3%) = $37,485.00
+State Limit ($1,000,000): Within limit (100% eligible)
+Additional State Deductible: $45,000.00 − $37,485.00 = $7,515.00
 ```
 
 Each statement line includes an instant **Copy** button to speed up high-volume tax return data entry.

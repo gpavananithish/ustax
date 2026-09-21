@@ -130,14 +130,15 @@ export function calculateMortgageLimits({
 
   if (isFedLimited && outstanding > 0) {
     // Case 3B: Over Limit
-    // First multiply by 100 to convert ratio to percentage (e.g. 750k/900k * 100 = 83.333333%),
-    // then round to specified decimal places (e.g. 3 decimals = 83.333%)
-    const rawPercent = (fedLimit / outstanding) * 100;
+    // IRS Pub 936 Table 1 Line 13: Enter result as a decimal amount (rounded to three places, e.g. 0.694)
+    // The quotient takes 3 decimal digits BEFORE multiplying by 100
+    const rawRatio = fedLimit / outstanding;
     const factor = Math.pow(10, decimals);
-    federalPercent = Math.round(rawPercent * factor) / factor;
-    federalRatio = federalPercent / 100;
-    federal = federalRatio * totalInterest;
-    federalDisallowed = Math.max(0, totalInterest - federal);
+    federalRatio = Math.round(rawRatio * factor) / factor;
+    const pctFactor = Math.pow(10, Math.max(0, decimals - 2));
+    federalPercent = Math.round(federalRatio * 100 * pctFactor) / pctFactor;
+    federal = Math.round(federalRatio * totalInterest * 100) / 100;
+    federalDisallowed = Math.max(0, Math.round((totalInterest - federal) * 100) / 100);
   } else {
     // Case 3A: Within Limit
     federalPercent = 100;
@@ -166,20 +167,21 @@ export function calculateMortgageLimits({
     } else if (outstanding <= stateCap) {
       // Case 4B (The Gap): $750,000 < Net Mortgage <= $1,000,000
       stateTotal = totalInterest;
-      stateAdditional = Math.max(0, totalInterest - federal);
+      stateAdditional = Math.max(0, Math.round((totalInterest - federal) * 100) / 100);
       stateDisallowed = 0;
       statePercent = 100;
       stateRatio = 1.0;
     } else {
       // Case 4C: Net Mortgage > $1,000,000
-      // Multiply by 100 first, then round to specified decimal places
-      const rawStatePercent = (stateCap / outstanding) * 100;
+      // Round decimal ratio to specified digits before multiplying by 100 (e.g. 0.926)
+      const rawStateRatio = stateCap / outstanding;
       const factor = Math.pow(10, decimals);
-      statePercent = Math.round(rawStatePercent * factor) / factor;
-      stateRatio = statePercent / 100;
-      stateTotal = stateRatio * totalInterest;
-      stateAdditional = Math.max(0, stateTotal - federal);
-      stateDisallowed = Math.max(0, totalInterest - stateTotal);
+      stateRatio = Math.round(rawStateRatio * factor) / factor;
+      const pctFactor = Math.pow(10, Math.max(0, decimals - 2));
+      statePercent = Math.round(stateRatio * 100 * pctFactor) / pctFactor;
+      stateTotal = Math.round(stateRatio * totalInterest * 100) / 100;
+      stateAdditional = Math.max(0, Math.round((stateTotal - federal) * 100) / 100);
+      stateDisallowed = Math.max(0, Math.round((totalInterest - stateTotal) * 100) / 100);
     }
   } else {
     // Pre-2017 Regime: Federal Limit = State Limit = $1,000,000
@@ -203,10 +205,12 @@ export function calculateMortgageLimits({
     totalInterest,
     fedLimit,
     isFedLimited,
+    federalRatio,
     federalPercent,
     federal,
     federalDisallowed,
     stateCap,
+    stateRatio,
     statePercent,
     stateTotal,
     stateAdditional,
@@ -263,9 +267,11 @@ function generateReturnLines(params) {
     totalInterest,
     fedLimit,
     isFedLimited,
+    federalRatio = 1.0,
     federalPercent,
     federal,
     stateCap,
+    stateRatio = 1.0,
     statePercent,
     stateTotal,
     stateAdditional,
@@ -314,8 +320,8 @@ function generateReturnLines(params) {
       // Pre-2017 Regime
       if (isFedLimited) {
         fedLines = [
-          `Pre-2017 Limit ($1,000,000): (${formatCurrency(1000000)} ÷ ${formatCurrency(outstanding)}) × 100 = ${federalPercent.toFixed(decimals)}%`,
-          `Eligible Interest (Fed & State): ${formatCurrency(totalInterest)} × ${federalPercent.toFixed(decimals)}% = ${formatCurrency(federal)}`,
+          `Pre-2017 Limit ($1,000,000): ${formatCurrency(1000000)} ÷ ${formatCurrency(outstanding)} = ${federalRatio.toFixed(decimals)} (${federalPercent}%)`,
+          `Eligible Interest (Fed & State): ${formatCurrency(totalInterest)} × ${federalRatio.toFixed(decimals)} (${federalPercent}%) = ${formatCurrency(federal)}`,
         ];
       } else {
         fedLines = [
@@ -329,8 +335,8 @@ function generateReturnLines(params) {
     // Post-2017 Regime
     if (isFedLimited) {
       fedLines = [
-        `Federal Limit ($750,000): (${formatCurrency(fedLimit)} ÷ ${formatCurrency(outstanding)}) × 100 = ${federalPercent.toFixed(decimals)}%`,
-        `Federal Deductible: ${formatCurrency(totalInterest)} × ${federalPercent.toFixed(decimals)}% = ${formatCurrency(federal)}`,
+        `Federal Limit ($750,000): ${formatCurrency(fedLimit)} ÷ ${formatCurrency(outstanding)} = ${federalRatio.toFixed(decimals)} (${federalPercent}%)`,
+        `Federal Deductible: ${formatCurrency(totalInterest)} × ${federalRatio.toFixed(decimals)} (${federalPercent}%) = ${formatCurrency(federal)}`,
       ];
     } else {
       fedLines = [
@@ -343,8 +349,8 @@ function generateReturnLines(params) {
     if (stateAdditional > 0) {
       if (outstanding > stateCap) {
         stateLines.push(
-          `State Limit ($1,000,000): (${formatCurrency(stateCap)} ÷ ${formatCurrency(outstanding)}) × 100 = ${statePercent.toFixed(decimals)}%`,
-          `State Deductible: ${formatCurrency(totalInterest)} × ${statePercent.toFixed(decimals)}% = ${formatCurrency(stateTotal)}`
+          `State Limit ($1,000,000): ${formatCurrency(stateCap)} ÷ ${formatCurrency(outstanding)} = ${stateRatio.toFixed(decimals)} (${statePercent}%)`,
+          `State Deductible: ${formatCurrency(totalInterest)} × ${stateRatio.toFixed(decimals)} (${statePercent}%) = ${formatCurrency(stateTotal)}`
         );
       } else {
         stateLines.push(`State Limit ($1,000,000): Within limit (100% eligible)`);
@@ -402,19 +408,19 @@ function generateReturnLines(params) {
       netLine,
       totalLine,
       isFedLimited
-        ? `Federal/state loan limit: (${formatCurrency(1000000)} ÷ ${formatCurrency(outstanding)}) × 100 = ${federalPercent.toFixed(decimals)}%.`
+        ? `Federal/state loan limit: ${formatCurrency(1000000)} ÷ ${formatCurrency(outstanding)} = ${federalRatio.toFixed(decimals)} (${federalPercent}%).`
         : `Net mortgage is within the ${formatCurrency(1000000)} pre-2017 loan limit; 100% of interest is eligible.`,
-      `Mortgage interest eligible for federal and state deduction = ${formatCurrency(totalInterest)} × ${federalPercent.toFixed(decimals)}% = ${formatCurrency(federal)}.`,
+      `Mortgage interest eligible for federal and state deduction = ${formatCurrency(totalInterest)} × ${federalRatio.toFixed(decimals)} (${federalPercent}%) = ${formatCurrency(federal)}.`,
     ];
   }
 
   const federalExplanation = isFedLimited
-    ? `Federal loan limit: (${formatCurrency(fedLimit)} ÷ ${formatCurrency(outstanding)}) × 100 = ${federalPercent.toFixed(decimals)}%.`
+    ? `Federal loan limit: ${formatCurrency(fedLimit)} ÷ ${formatCurrency(outstanding)} = ${federalRatio.toFixed(decimals)} (${federalPercent}%).`
     : `Net mortgage is within the ${formatCurrency(fedLimit)} federal loan limit; 100% of interest is eligible for federal.`;
 
   const stateExplanation =
     outstanding > stateCap
-      ? `State limit calculation: (${formatCurrency(stateCap)} ÷ ${formatCurrency(outstanding)}) × 100 = ${statePercent.toFixed(decimals)}%; ${formatCurrency(totalInterest)} × ${statePercent.toFixed(decimals)}% = ${formatCurrency(stateTotal)} total state-eligible interest.`
+      ? `State limit calculation: ${formatCurrency(stateCap)} ÷ ${formatCurrency(outstanding)} = ${stateRatio.toFixed(decimals)} (${statePercent}%); ${formatCurrency(totalInterest)} × ${stateRatio.toFixed(decimals)} (${statePercent}%) = ${formatCurrency(stateTotal)} total state-eligible interest.`
       : `Net mortgage is within the ${formatCurrency(stateCap)} state limit; state-eligible interest is ${formatCurrency(totalInterest)}.`;
 
   return [
@@ -422,7 +428,7 @@ function generateReturnLines(params) {
     netLine,
     totalLine,
     federalExplanation,
-    `Federal mortgage interest eligible for deduction = ${formatCurrency(totalInterest)} × ${federalPercent.toFixed(decimals)}% = ${formatCurrency(federal)}.`,
+    `Federal mortgage interest eligible for deduction = ${formatCurrency(totalInterest)} × ${federalRatio.toFixed(decimals)} (${federalPercent}%) = ${formatCurrency(federal)}.`,
     stateExplanation,
     `Additional state mortgage interest eligible = ${formatCurrency(stateTotal)} − ${formatCurrency(federal)} = ${formatCurrency(stateAdditional)}.`,
   ];

@@ -47,7 +47,9 @@ function Calculation3DView({ result, fmt, rule, decimals = 3 }) {
             badge: 'bg-blue-50 text-blue-700 border-blue-200',
             dot: 'bg-blue-500',
           },
-          tag: result.interest > 0 ? `${result.federalPercent.toFixed(decimals)}% of interest` : '100% eligible',
+          tag: result.interest > 0
+            ? (result.isFedLimited ? `${result.federalRatio.toFixed(decimals)} (${result.federalPercent}%)` : '100% eligible')
+            : '100% eligible',
         },
         {
           id: 'state',
@@ -62,7 +64,9 @@ function Calculation3DView({ result, fmt, rule, decimals = 3 }) {
             badge: 'bg-emerald-50 text-emerald-700 border-emerald-200',
             dot: 'bg-emerald-500',
           },
-          tag: result.interest > 0 ? `${result.statePercent.toFixed(decimals)}% state limit` : 'State adjustment',
+          tag: result.interest > 0
+            ? (result.stateRatio < 1 ? `${result.stateRatio.toFixed(decimals)} (${result.statePercent}%) state limit` : 'State adjustment')
+            : 'State adjustment',
         },
         {
           id: 'total-eligible',
@@ -77,7 +81,9 @@ function Calculation3DView({ result, fmt, rule, decimals = 3 }) {
             badge: 'bg-indigo-50 text-indigo-700 border-indigo-200',
             dot: 'bg-indigo-500',
           },
-          tag: result.interest > 0 ? `${(((result.federal + result.stateAdditional) / result.interest) * 100).toFixed(decimals)}% total` : 'Total qualifying',
+          tag: result.interest > 0
+            ? `${(((result.federal + result.stateAdditional) / result.interest) * 100).toFixed(1)}% total`
+            : 'Total qualifying',
         },
         {
           id: 'reported',
@@ -174,7 +180,7 @@ function Calculation3DView({ result, fmt, rule, decimals = 3 }) {
             badge: 'bg-indigo-50 text-indigo-700 border-indigo-200',
             dot: 'bg-indigo-500',
           },
-          tag: `${result.federalPercent.toFixed(decimals)}% of interest`,
+          tag: result.isFedLimited ? `${result.federalRatio.toFixed(decimals)} (${result.federalPercent}%)` : '100% eligible',
         },
         {
           id: 'state-add',
@@ -214,7 +220,7 @@ function Calculation3DView({ result, fmt, rule, decimals = 3 }) {
               Slanted at {tiltAngle}°
             </span>
             <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700">
-              Ratio: {result.federalPercent.toFixed(decimals)}%
+              Ratio: {result.isFedLimited ? `${result.federalRatio.toFixed(decimals)} (${result.federalPercent}%)` : '100%'}
             </span>
           </div>
           <h3 className="mt-1 text-xl font-bold text-slate-900">Visual Deduction Split</h3>
@@ -413,7 +419,9 @@ function Calculation3DView({ result, fmt, rule, decimals = 3 }) {
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 text-xs text-slate-600">
         <div className="flex items-center gap-2">
           <span className="font-semibold text-slate-700">Federal Deduction Ratio:</span>
-          <span className="font-bold text-blue-700">{result.federalPercent.toFixed(decimals)}%</span>
+          <span className="font-bold text-blue-700">
+            {result.isFedLimited ? `${result.federalRatio.toFixed(decimals)} (${result.federalPercent}%)` : '100%'}
+          </span>
           <span className="text-slate-400">·</span>
           <span>
             Applicable Cap: <b className="text-slate-800">{fmt(result.federalLimit)}</b> ({rule === 'pre' ? 'Pre-2017' : 'Post-2017'})
@@ -553,13 +561,13 @@ function App() {
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="mb-3 flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-bold text-slate-700">Percentage decimal places</p>
+                  <p className="text-sm font-bold text-slate-700">Ratio decimal places (IRS Pub 936)</p>
                   <p className="text-xs text-slate-500">
-                    Digits after decimal for limit % before multiplying by Form 1098 interest
+                    Digits considered before multiplying by 100 (e.g. 0.694 = 3 digits)
                   </p>
                 </div>
                 <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700">
-                  {decimals} decimal{decimals > 1 ? 's' : ''} {decimals === 3 ? '(Default)' : ''}
+                  {decimals} decimal{decimals > 1 ? 's' : ''} {decimals === 3 ? '(Default · IRS Standard)' : ''}
                 </span>
               </div>
               <div className="grid grid-cols-5 gap-2">
@@ -575,7 +583,7 @@ function App() {
                     }`}
                   >
                     <span className="text-base font-bold">{d}</span>
-                    <span className="text-[10px] text-slate-500">{d === 3 ? 'Default' : `${d} digit${d > 1 ? 's' : ''}`}</span>
+                    <span className="text-[10px] text-slate-500">{d === 3 ? 'Default (IRS)' : `${d} digit${d > 1 ? 's' : ''}`}</span>
                   </button>
                 ))}
               </div>
@@ -638,7 +646,9 @@ function App() {
               <div className="mt-5 border-t border-slate-800 pt-4 text-sm text-slate-300">
                 Net mortgage: <b className="text-white">{fmt(result.outstanding)}</b> · Form 1098 interest:{' '}
                 <b className="text-white">{fmt(result.interest)}</b> · Ratio:{' '}
-                <b className="text-white">{result.federalPercent.toFixed(decimals)}%</b>
+                <b className="text-white">
+                  {result.isFedLimited ? `${result.federalRatio.toFixed(decimals)} (${result.federalPercent}%)` : '100%'}
+                </b>
               </div>
             </div>
 
