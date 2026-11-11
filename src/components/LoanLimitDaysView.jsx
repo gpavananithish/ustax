@@ -7,11 +7,20 @@ export function LoanLimitDaysView() {
   const [isLeapYear, setIsLeapYear] = useState(false); // false (365) | true (366)
   const [descStyle, setDescStyle] = useState('simple'); // 'simple' | 'detailed'
   const [periods, setPeriods] = useState([
-    { id: 'loan-1', name: 'Loan 1', rate: '6.5', days: '120' },
+    {
+      id: 'loan-1',
+      name: 'Loan 1',
+      rate: '6.5',
+      days: '120',
+      showDateHelper: false,
+      startDate: '',
+      endDate: '',
+      isInclusive: true,
+    },
   ]);
   const [copied, setCopied] = useState('');
 
-  // Date Range Calculator State
+  // Standalone Date Range Calculator State
   const [calcStartDate, setCalcStartDate] = useState('');
   const [calcEndDate, setCalcEndDate] = useState('');
   const [isInclusive, setIsInclusive] = useState(true);
@@ -36,6 +45,10 @@ export function LoanLimitDaysView() {
         name: `Loan ${current.length + 1}`,
         rate: '',
         days: '',
+        showDateHelper: false,
+        startDate: '',
+        endDate: '',
+        isInclusive: true,
       },
     ]);
   };
@@ -51,7 +64,39 @@ export function LoanLimitDaysView() {
     updatePeriod(index, 'days', String(days));
   };
 
-  // Date difference calculation logic
+  const setPresetRate = (index, rate) => {
+    updatePeriod(index, 'rate', String(rate));
+  };
+
+  // Helper for inline date calculation per loan
+  const handleInlineDateChange = (index, newStart, newEnd, inclusive) => {
+    updatePeriod(index, 'startDate', newStart);
+    updatePeriod(index, 'endDate', newEnd);
+    updatePeriod(index, 'isInclusive', inclusive);
+
+    if (newStart && newEnd) {
+      const start = new Date(newStart + 'T00:00:00');
+      const end = new Date(newEnd + 'T00:00:00');
+      if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && end >= start) {
+        const diffMs = end.getTime() - start.getTime();
+        const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24)) + (inclusive ? 1 : 0);
+        updatePeriod(index, 'days', String(diffDays));
+
+        // Detect leap year
+        const startYear = start.getFullYear();
+        const endYear = end.getFullYear();
+        for (let yr = startYear; yr <= endYear; yr++) {
+          const feb29 = new Date(yr, 1, 29);
+          if (feb29.getMonth() === 1 && feb29.getDate() === 29 && feb29 >= start && feb29 <= end) {
+            setIsLeapYear(true);
+            break;
+          }
+        }
+      }
+    }
+  };
+
+  // Standalone Date difference calculation logic
   const dateDiffResult = useMemo(() => {
     if (!calcStartDate || !calcEndDate) return null;
 
@@ -180,7 +225,10 @@ export function LoanLimitDaysView() {
         <div className="space-y-5">
           {/* Acquisition Date Rule */}
           <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
-            <p className="mb-3 text-sm font-bold text-slate-700">Acquisition date rule</p>
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-sm font-bold text-slate-700">Acquisition date rule</p>
+              <span className="text-xs text-slate-500">Select applicable regime</span>
+            </div>
             <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 gap-2">
               <button
                 type="button"
@@ -191,9 +239,9 @@ export function LoanLimitDaysView() {
                     : 'border-slate-200 hover:border-slate-300'
                 }`}
               >
-                <b className="block text-sm sm:text-base">Pre-2017</b>
+                <b className="block text-sm sm:text-base text-slate-900">Pre-2017</b>
                 <span className="text-xs text-slate-500">
-                  Acquired on/before Dec. 15, 2017 · $1M Limit
+                  On/before Dec. 15, 2017 · $1M Limit
                 </span>
               </button>
               <button
@@ -205,9 +253,9 @@ export function LoanLimitDaysView() {
                     : 'border-slate-200 hover:border-slate-300'
                 }`}
               >
-                <b className="block text-sm sm:text-base">Post-2017</b>
+                <b className="block text-sm sm:text-base text-slate-900">Post-2017</b>
                 <span className="text-xs text-slate-500">
-                  Acquired after Dec. 15, 2017 · $750K Federal / $1M State
+                  After Dec. 15, 2017 · $750K Fed / $1M State
                 </span>
               </button>
             </div>
@@ -258,7 +306,253 @@ export function LoanLimitDaysView() {
             </div>
           </div>
 
-          {/* Date Range to Days Calculator Card */}
+          {/* Loan Details Card - Fast & Typable */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="font-bold text-sm sm:text-base text-slate-900">Loan & active period details</p>
+                <p className="text-xs text-slate-500">
+                  Type values directly or click speed presets
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={addPeriod}
+                className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 transition"
+              >
+                + Add loan period
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {periods.map((period, i) => {
+                const rowCalc = result.rows[i] || {};
+                const parsedDays = Number(period.days) || 0;
+                const parsedRate = Number(period.rate) || 0;
+                const isDaysOver = parsedDays > yearDays;
+                const isRateOver = parsedRate > 30;
+
+                return (
+                  <div key={period.id || i} className="rounded-xl bg-slate-50 p-3.5 sm:p-4 border border-slate-200">
+                    <div className="mb-3 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full bg-blue-500" />
+                        <b className="text-sm text-slate-800">{period.name}</b>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => updatePeriod(i, 'showDateHelper', !period.showDateHelper)}
+                          className={`text-xs font-semibold px-2 py-0.5 rounded transition ${
+                            period.showDateHelper
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-white border border-slate-200 text-blue-700 hover:bg-blue-50'
+                          }`}
+                        >
+                          {period.showDateHelper ? '✕ Hide Date Picker' : '📅 Calculate from Dates'}
+                        </button>
+                        {periods.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removePeriod(i)}
+                            className="text-xs font-semibold text-rose-600 hover:text-rose-800"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Inline Date Picker Accordion */}
+                    {period.showDateHelper && (
+                      <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50/50 p-3 animate-fade-in">
+                        <p className="text-xs font-bold text-blue-900 mb-2">
+                          Select date range for {period.name} (auto-calculates active days):
+                        </p>
+                        <div className="grid gap-2 grid-cols-1 sm:grid-cols-2">
+                          <label className="block">
+                            <span className="mb-1 block text-[11px] font-semibold text-slate-600">Start Date</span>
+                            <input
+                              type="date"
+                              value={period.startDate || ''}
+                              onChange={(e) =>
+                                handleInlineDateChange(i, e.target.value, period.endDate || '', period.isInclusive ?? true)
+                              }
+                              className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-blue-500"
+                            />
+                          </label>
+                          <label className="block">
+                            <span className="mb-1 block text-[11px] font-semibold text-slate-600">End Date</span>
+                            <input
+                              type="date"
+                              value={period.endDate || ''}
+                              onChange={(e) =>
+                                handleInlineDateChange(i, period.startDate || '', e.target.value, period.isInclusive ?? true)
+                              }
+                              className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-blue-500"
+                            />
+                          </label>
+                        </div>
+                        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+                          <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-slate-600">
+                            <input
+                              type="checkbox"
+                              checked={period.isInclusive ?? true}
+                              onChange={(e) =>
+                                handleInlineDateChange(i, period.startDate || '', period.endDate || '', e.target.checked)
+                              }
+                              className="rounded border-slate-300 text-blue-600"
+                            />
+                            <span>Inclusive of both start & end dates</span>
+                          </label>
+                          <span className="text-[11px] font-bold text-blue-700">
+                            Result: {period.days || 0} active days
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
+                      {/* Interest Rate with Typing & Fast Pills */}
+                      <div>
+                        <div className="mb-1.5 flex items-center justify-between">
+                          <span className="text-xs font-semibold text-slate-700">Interest rate</span>
+                          <span className="text-[11px] font-bold text-blue-600">Annual %</span>
+                        </div>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.001"
+                            value={period.rate}
+                            onChange={(e) => updatePeriod(i, 'rate', e.target.value)}
+                            placeholder="e.g. 6.50"
+                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 pr-8 text-base sm:text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 font-medium"
+                          />
+                          <span className="pointer-events-none absolute right-3 top-2 font-bold text-slate-400">
+                            %
+                          </span>
+                        </div>
+
+                        {/* Fast Rate Pills */}
+                        <div className="mt-2 flex flex-wrap items-center gap-1">
+                          <span className="text-[10px] text-slate-400 mr-0.5">Quick:</span>
+                          {['5.0', '5.5', '6.0', '6.5', '7.0', '7.5', '8.0'].map((r) => (
+                            <button
+                              key={r}
+                              type="button"
+                              onClick={() => setPresetRate(i, r)}
+                              className={`rounded px-1.5 py-0.5 text-[10px] font-semibold transition ${
+                                period.rate === r
+                                  ? 'bg-blue-600 text-white'
+                                  : 'bg-white border border-slate-200 text-slate-700 hover:bg-blue-50 hover:text-blue-700'
+                              }`}
+                            >
+                              {r}%
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Rate Warning Badge */}
+                        {isRateOver && (
+                          <p className="mt-1 text-[11px] font-semibold text-amber-600">
+                            ⚠️ Notice: High interest rate (&gt;30%)
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Number of Days with Typing & Fast Pills */}
+                      <div>
+                        <div className="mb-1.5 flex items-center justify-between">
+                          <span className="text-xs font-semibold text-slate-700">Number of days</span>
+                          <span className="text-[11px] font-bold text-slate-500">out of {yearDays}</span>
+                        </div>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min="0"
+                            max={yearDays}
+                            step="1"
+                            value={period.days}
+                            onChange={(e) => updatePeriod(i, 'days', e.target.value)}
+                            placeholder="e.g. 120"
+                            className={`w-full rounded-xl border px-3 py-2 pr-12 text-base sm:text-sm outline-none transition font-medium ${
+                              isDaysOver
+                                ? 'border-amber-400 bg-amber-50/50 text-slate-900 focus:border-amber-500 focus:ring-4 focus:ring-amber-100'
+                                : 'border-slate-200 bg-white text-slate-900 focus:border-blue-500 focus:ring-4 focus:ring-blue-100'
+                            }`}
+                          />
+                          <span className="pointer-events-none absolute right-3 top-2 text-xs font-semibold text-slate-400">
+                            days
+                          </span>
+                        </div>
+
+                        {/* Fast Days Pills */}
+                        <div className="mt-2 flex flex-wrap items-center gap-1">
+                          <span className="text-[10px] text-slate-400 mr-0.5">Quick:</span>
+                          <button
+                            type="button"
+                            onClick={() => setPresetDays(i, yearDays)}
+                            className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-blue-50 hover:text-blue-700"
+                          >
+                            Full ({yearDays}d)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPresetDays(i, Math.round(yearDays / 2))}
+                            className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-blue-50 hover:text-blue-700"
+                          >
+                            Half ({Math.round(yearDays / 2)}d)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPresetDays(i, 90)}
+                            className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-blue-50 hover:text-blue-700"
+                          >
+                            90d
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPresetDays(i, 30)}
+                            className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-blue-50 hover:text-blue-700"
+                          >
+                            30d
+                          </button>
+                        </div>
+
+                        {/* Days Range Warning Badge */}
+                        {isDaysOver && (
+                          <p className="mt-1 text-[11px] font-bold text-amber-700">
+                            ⚠️ Exceeds {yearDays} days (will be capped at {yearDays} for tax calculation)
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Real-time Row Calculation Pill */}
+                    {rowCalc.rateNum > 0 && rowCalc.daysNum > 0 && (
+                      <div className="mt-3 flex flex-col xs:flex-row xs:items-center justify-between gap-2 rounded-lg bg-blue-50/70 px-3 py-2 text-xs text-blue-900 border border-blue-100">
+                        <div className="break-words">
+                          Federal Allowable: <b>{formatCurrency(rowCalc.fedAmount)}</b>
+                          {rule === 'post' && (
+                            <span className="ml-2 text-emerald-800">
+                              · Add’l State: <b>{formatCurrency(rowCalc.stateAdditional)}</b>
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[11px] text-blue-700 font-semibold shrink-0">
+                          {((rowCalc.daysNum / yearDays) * 100).toFixed(1)}% of tax year
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Dedicated Standalone Date Range Days Calculator Card */}
           <div className="rounded-2xl border border-blue-200 bg-gradient-to-b from-blue-50/50 to-white p-4 sm:p-5 shadow-sm">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-blue-100 pb-3">
               <div className="flex items-center gap-2">
@@ -373,7 +667,7 @@ export function LoanLimitDaysView() {
                         onClick={() => applyCalculatedDaysToLoan(selectedTargetLoanIndex)}
                         className="flex-1 sm:flex-none rounded-lg bg-blue-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-blue-700 transition text-center"
                       >
-                        Apply to {periods[selectedTargetLoanIndex]?.name || 'Loan 1'}
+                        ⚡ Apply to {periods[selectedTargetLoanIndex]?.name || 'Loan 1'}
                       </button>
                     </div>
                   </div>
@@ -386,161 +680,6 @@ export function LoanLimitDaysView() {
                 {dateCalcFeedback}
               </p>
             )}
-          </div>
-
-          {/* Loan Details Card */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <p className="font-bold text-sm sm:text-base text-slate-900">Loan & active period details</p>
-                <p className="text-xs text-slate-500">
-                  Enter annual interest rate (%) and active days out of {yearDays}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={addPeriod}
-                className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 transition"
-              >
-                + Add loan period
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              {periods.map((period, i) => {
-                const rowCalc = result.rows[i] || {};
-                return (
-                  <div key={period.id || i} className="rounded-xl bg-slate-50 p-3.5 sm:p-4 border border-slate-100">
-                    <div className="mb-3 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="h-2 w-2 rounded-full bg-blue-500" />
-                        <b className="text-sm text-slate-800">{period.name}</b>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedTargetLoanIndex(i);
-                            if (dateDiffResult && dateDiffResult.days > 0) {
-                              applyCalculatedDaysToLoan(i);
-                            }
-                          }}
-                          className="text-[11px] font-semibold text-blue-600 hover:text-blue-800"
-                        >
-                          Use date calculator
-                        </button>
-                        {periods.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => removePeriod(i)}
-                            className="text-xs font-semibold text-rose-600 hover:text-rose-800"
-                          >
-                            Remove
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
-                      {/* Interest Rate */}
-                      <label className="block">
-                        <div className="mb-1.5 flex items-center justify-between">
-                          <span className="text-xs font-semibold text-slate-700">Interest rate</span>
-                          <span className="text-[11px] font-bold text-blue-600">Annual %</span>
-                        </div>
-                        <div className="relative">
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.001"
-                            value={period.rate}
-                            onChange={(e) => updatePeriod(i, 'rate', e.target.value)}
-                            placeholder="e.g. 6.50"
-                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 pr-8 text-base sm:text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                          />
-                          <span className="pointer-events-none absolute right-3 top-2.5 font-bold text-slate-400">
-                            %
-                          </span>
-                        </div>
-                      </label>
-
-                      {/* Number of Days */}
-                      <label className="block">
-                        <div className="mb-1.5 flex items-center justify-between">
-                          <span className="text-xs font-semibold text-slate-700">Number of days</span>
-                          <span className="text-[11px] font-bold text-slate-500">out of {yearDays}</span>
-                        </div>
-                        <div className="relative">
-                          <input
-                            type="number"
-                            min="0"
-                            max={yearDays}
-                            step="1"
-                            value={period.days}
-                            onChange={(e) => updatePeriod(i, 'days', e.target.value)}
-                            placeholder={`e.g. 120`}
-                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 pr-12 text-base sm:text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                          />
-                          <span className="pointer-events-none absolute right-3 top-2.5 text-xs font-semibold text-slate-400">
-                            days
-                          </span>
-                        </div>
-                      </label>
-                    </div>
-
-                    {/* Quick Preset Buttons for Days */}
-                    <div className="mt-3 flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-200/60">
-                      <span className="text-[11px] font-semibold text-slate-500 mr-1">Presets:</span>
-                      <button
-                        type="button"
-                        onClick={() => setPresetDays(i, yearDays)}
-                        className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-700 hover:bg-slate-100"
-                      >
-                        Full Year ({yearDays} d)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPresetDays(i, Math.round(yearDays / 2))}
-                        className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-700 hover:bg-slate-100"
-                      >
-                        Half Year ({Math.round(yearDays / 2)} d)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPresetDays(i, 90)}
-                        className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-700 hover:bg-slate-100"
-                      >
-                        90 Days
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPresetDays(i, 30)}
-                        className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-700 hover:bg-slate-100"
-                      >
-                        30 Days
-                      </button>
-                    </div>
-
-                    {/* Real-time Row Calculation Pill */}
-                    {rowCalc.rateNum > 0 && rowCalc.daysNum > 0 && (
-                      <div className="mt-3 flex flex-col xs:flex-row xs:items-center justify-between gap-2 rounded-lg bg-blue-50/70 px-3 py-2 text-xs text-blue-900 border border-blue-100">
-                        <div className="break-words">
-                          Federal: <b>{formatCurrency(rowCalc.fedAmount)}</b>
-                          {rule === 'post' && (
-                            <span className="ml-2 text-emerald-800">
-                              · Add’l State: <b>{formatCurrency(rowCalc.stateAdditional)}</b>
-                            </span>
-                          )}
-                        </div>
-                        <span className="text-[11px] text-blue-700 shrink-0">
-                          {((rowCalc.daysNum / yearDays) * 100).toFixed(1)}% of year
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
           </div>
         </div>
 

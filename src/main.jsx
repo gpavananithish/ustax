@@ -8,7 +8,7 @@ const money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD
 const number = (value) => Math.max(0, Number(String(value).replace(/,/g, '')) || 0);
 const fmt = (value) => money.format(value);
 
-function Field({ label, value, onChange, hint }) {
+function Field({ label, value, onChange, hint, presets, warning }) {
   return (
     <label className="block">
       <span className="mb-1.5 block text-xs sm:text-sm font-semibold text-slate-700">{label}</span>
@@ -17,11 +17,33 @@ function Field({ label, value, onChange, hint }) {
         min="0"
         step="0.01"
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => {
+          const val = e.target.value;
+          if (val && Number(val) < 0) {
+            onChange('0');
+          } else {
+            onChange(val);
+          }
+        }}
         placeholder="0.00"
-        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-base sm:text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-base sm:text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 font-medium"
       />
-      {hint && <span className="mt-1 block text-xs text-slate-500">{hint}</span>}
+      {presets && (
+        <div className="mt-1.5 flex flex-wrap gap-1">
+          {presets.map((p) => (
+            <button
+              key={p.label}
+              type="button"
+              onClick={() => onChange(String(p.val))}
+              className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-white border border-slate-200 text-slate-600 hover:bg-blue-50 hover:text-blue-700 transition"
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+      )}
+      {warning && <span className="mt-1 block text-[11px] font-semibold text-amber-600">{warning}</span>}
+      {hint && !warning && <span className="mt-1 block text-xs text-slate-500">{hint}</span>}
     </label>
   );
 }
@@ -642,9 +664,37 @@ function App() {
                       )}
                     </div>
                     <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
-                      <Field label="Beginning balance" value={loan.start} onChange={(v) => updateLoan(i, 'start', v)} />
-                      <Field label="Ending balance" value={loan.end} onChange={(v) => updateLoan(i, 'end', v)} />
-                      <Field label="1098 interest" value={loan.interest} onChange={(v) => updateLoan(i, 'interest', v)} />
+                      <Field
+                        label="Beginning balance"
+                        value={loan.start}
+                        onChange={(v) => updateLoan(i, 'start', v)}
+                        presets={[
+                          { label: '$500k', val: '500000' },
+                          { label: '$750k', val: '750000' },
+                          { label: '$1M', val: '1000000' },
+                        ]}
+                      />
+                      <Field
+                        label="Ending balance"
+                        value={loan.end}
+                        onChange={(v) => updateLoan(i, 'end', v)}
+                        presets={[
+                          { label: 'Same as start', val: loan.start || '0' },
+                          { label: '$0 (Paid off)', val: '0' },
+                        ]}
+                      />
+                      <Field
+                        label="1098 interest"
+                        value={loan.interest}
+                        onChange={(v) => updateLoan(i, 'interest', v)}
+                        warning={
+                          Number(loan.interest) > 0 &&
+                          (Number(loan.start) > 0 || Number(loan.end) > 0) &&
+                          Number(loan.interest) > (Number(loan.start || 0) + Number(loan.end || 0))
+                            ? 'Notice: Interest exceeds principal'
+                            : undefined
+                        }
+                      />
                     </div>
                   </div>
                 ))}

@@ -466,8 +466,14 @@ export function calculateLoanLimitDays({
     const rawRate = period.rate !== undefined ? period.rate : period.interestRate;
     const rawDays = period.days !== undefined ? period.days : period.noOfDays;
 
-    const rateNum = parseNumber(rawRate);
-    const daysNum = Math.min(yearDays, parseNumber(rawDays));
+    const parsedRate = parseNumber(rawRate);
+    const parsedDays = parseNumber(rawDays);
+
+    // Range validation: Rate between 0% and 100%, Days between 0 and yearDays
+    const rateNum = Math.max(0, Math.min(100, parsedRate));
+    const daysNum = Math.max(0, Math.min(yearDays, parsedDays));
+    const isDaysExceeded = parsedDays > yearDays;
+    const isRateHigh = parsedRate > 35;
     const name = period.name || `Loan ${idx + 1}`;
 
     // Formula: (limit * intrate * no of days) / (100 * yearDays)
@@ -486,6 +492,10 @@ export function calculateLoanLimitDays({
       rateNum,
       days: rawDays ?? '',
       daysNum,
+      parsedRate,
+      parsedDays,
+      isDaysExceeded,
+      isRateHigh,
       fedAmount,
       stateTotal,
       stateAdditional,
