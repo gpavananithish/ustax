@@ -433,3 +433,195 @@ function generateReturnLines(params) {
     `Additional state mortgage interest eligible = ${formatCurrency(stateTotal)} − ${formatCurrency(federal)} = ${formatCurrency(stateAdditional)}.`,
   ];
 }
+
+/**
+ * Loan Limit Days Calculation Engine
+ *
+ * Implements the day-based mortgage interest deduction limit:
+ * Formula:
+ *   Federal Amount = (Federal Limit × Interest Rate × Number of Days) / (100 × Days in Year)
+ *   State Amount   = (State Limit × Interest Rate × Number of Days) / (100 × Days in Year)
+ *   Additional State = State Amount − Federal Amount
+ *
+ * Where:
+ *   Federal Limit = $750,000 (Post-2017) or $1,000,000 (Pre-2017)
+ *   State Limit   = $1,000,000
+ *   Days in Year  = 366 (Leap year) or 365 (Regular year)
+ */
+export function calculateLoanLimitDays({
+  rule = 'post', // 'post' | 'pre' | 'post-2017' | 'pre-2017'
+  isLeapYear = false,
+  periods = [], // [{ id, name, rate, days }]
+  decimals = 3,
+  descStyle = 'simple', // 'simple' | 'detailed'
+}) {
+  const isPost2017 = rule === 'post' || rule === 'post-2017';
+  const fedLimit = isPost2017 ? 750000 : 1000000;
+  const stateCap = 1000000;
+  const yearDays = isLeapYear ? 366 : 365;
+
+  const validPeriods = periods.length > 0 ? periods : [{ name: 'Loan 1', rate: '', days: '' }];
+
+  const rows = validPeriods.map((period, idx) => {
+    const rawRate = period.rate !== undefined ? period.rate : period.interestRate;
+    const rawDays = period.days !== undefined ? period.days : period.noOfDays;
+
+    const rateNum = parseNumber(rawRate);
+    const daysNum = Math.min(yearDays, parseNumber(rawDays));
+    const name = period.name || `Loan ${idx + 1}`;
+
+    // Formula: (limit * intrate * no of days) / (100 * yearDays)
+    const fedAmount = Math.round(((fedLimit * rateNum * daysNum) / (100 * yearDays)) * 100) / 100;
+    const stateTotal = Math.round(((stateCap * rateNum * daysNum) / (100 * yearDays)) * 100) / 100;
+    const stateAdditional = isPost2017 ? Math.max(0, Math.round((stateTotal - fedAmount) * 100) / 100) : 0;
+
+    const dailyFed = rateNum > 0 ? (fedLimit * (rateNum / 100)) / yearDays : 0;
+    const dailyState = rateNum > 0 ? (stateCap * (rateNum / 100)) / yearDays : 0;
+    const yearFraction = daysNum > 0 ? (daysNum / yearDays) * 100 : 0;
+
+    return {
+      id: period.id || `period-${idx + 1}`,
+      name,
+      rate: rawRate ?? '',
+      rateNum,
+      days: rawDays ?? '',
+      daysNum,
+      fedAmount,
+      stateTotal,
+      stateAdditional,
+      dailyFed,
+      dailyState,
+      yearFraction,
+    };
+  });
+
+  const totalFed = Math.round(rows.reduce((sum, r) => sum + r.fedAmount, 0) * 100) / 100;
+  const totalState = Math.round(rows.reduce((sum, r) => sum + r.stateTotal, 0) * 100) / 100;
+  const totalAdditional = Math.round(rows.reduce((sum, r) => sum + r.stateAdditional, 0) * 100) / 100;
+  const totalDays = rows.reduce((sum, r) => sum + r.daysNum, 0);
+
+  const lines = generateDaysReturnLines({
+    descStyle,
+    isPost2017,
+    rows,
+    fedLimit,
+    stateCap,
+    yearDays,
+    isLeapYear,
+    totalFed,
+    totalState,
+    totalAdditional,
+    totalDays,
+    decimals,
+  });
+
+  return {
+    rows,
+    totalFed,
+    federal: totalFed,
+    totalState,
+    stateTotal: totalState,
+    totalAdditional,
+    stateAdditional: totalAdditional,
+    totalDays,
+    fedLimit,
+    federalLimit: fedLimit,
+    stateCap,
+    stateLimit: stateCap,
+    yearDays,
+    isLeapYear,
+    isPost2017,
+    decimals,
+    lines,
+    descriptionLines: lines,
+  };
+}
+
+/**
+ * Generates Drake Tax statement lines for the day-based mortgage interest calculation.
+ */
+function generateDaysReturnLines({
+  descStyle,
+  isPost2017,
+  rows,
+  fedLimit,
+  stateCap,
+  yearDays,
+  isLeapYear,
+  totalFed,
+  totalState,
+  totalAdditional,
+  totalDays,
+}) {
+  const yearText = isLeapYear ? '366 days (Leap Year)' : '365 days';
+
+  if (descStyle === 'simple') {
+    const loanLines = rows.flatMap((r) => {
+      const items = [
+        `${r.name}: ${r.rateNum.toFixed(2)}% interest rate · ${r.daysNum} / ${yearDays} days`,
+      ];
+      if (isPost2017) {
+        items.push(
+          `${r.name} Federal Limit (${formatCurrency(fedLimit)}): (${formatCurrency(fedLimit)} × ${r.rateNum.toFixed(2)}% × ${r.daysNum}) ÷ ${yearDays} = ${formatCurrency(r.fedAmount)}`,
+          `${r.name} State Limit (${formatCurrency(stateCap)}): (${formatCurrency(stateCap)} × ${r.rateNum.toFixed(2)}% × ${r.daysNum}) ÷ ${yearDays} = ${formatCurrency(r.stateTotal)}`,
+          `${r.name} Additional State Deductible: ${formatCurrency(r.stateTotal)} − ${formatCurrency(r.fedAmount)} = ${formatCurrency(r.stateAdditional)}`
+        );
+      } else {
+        items.push(
+          `${r.name} Limit (${formatCurrency(fedLimit)}): (${formatCurrency(fedLimit)} × ${r.rateNum.toFixed(2)}% × ${r.daysNum}) ÷ ${yearDays} = ${formatCurrency(r.fedAmount)}`,
+          `${r.name} Eligible Interest (Fed & State): ${formatCurrency(r.fedAmount)}`,
+          `${r.name} Additional State Deductible: $0.00`
+        );
+      }
+      return items;
+    });
+
+    const summaryLines = [];
+    if (rows.length > 1) {
+      summaryLines.push(
+        `Total Days Active: ${totalDays} / ${yearDays} days`,
+        `Total Federal Deductible: ${rows.map((r) => formatCurrency(r.fedAmount)).join(' + ')} = ${formatCurrency(totalFed)}`
+      );
+      if (isPost2017) {
+        summaryLines.push(
+          `Total State Deductible: ${rows.map((r) => formatCurrency(r.stateTotal)).join(' + ')} = ${formatCurrency(totalState)}`,
+          `Total Additional State Deductible: ${rows.map((r) => formatCurrency(r.stateAdditional)).join(' + ')} = ${formatCurrency(totalAdditional)}`
+        );
+      }
+    }
+
+    return [...loanLines, ...summaryLines];
+  }
+
+  // Detailed style
+  const loanLines = rows.flatMap((r) => {
+    const items = [
+      `${r.name}: Annual interest rate of ${r.rateNum.toFixed(2)}% in effect for ${r.daysNum} days during the ${yearText} tax year.`,
+    ];
+    if (isPost2017) {
+      items.push(
+        `Federal allowable interest under post-2017 limit (${formatCurrency(fedLimit)}) = (${formatCurrency(fedLimit)} × ${r.rateNum.toFixed(2)}% × ${r.daysNum}) ÷ (100 × ${yearDays}) = ${formatCurrency(r.fedAmount)}.`,
+        `State allowable interest under statutory limit (${formatCurrency(stateCap)}) = (${formatCurrency(stateCap)} × ${r.rateNum.toFixed(2)}% × ${r.daysNum}) ÷ (100 × ${yearDays}) = ${formatCurrency(r.stateTotal)}.`,
+        `Additional state allowable mortgage interest = ${formatCurrency(r.stateTotal)} − ${formatCurrency(r.fedAmount)} = ${formatCurrency(r.stateAdditional)}.`
+      );
+    } else {
+      items.push(
+        `Allowable interest under pre-2017 limit (${formatCurrency(fedLimit)}) = (${formatCurrency(fedLimit)} × ${r.rateNum.toFixed(2)}% × ${r.daysNum}) ÷ (100 × ${yearDays}) = ${formatCurrency(r.fedAmount)}.`,
+        `Pre-2017 state conformity matches federal limit; additional state adjustment is $0.00.`
+      );
+    }
+    return items;
+  });
+
+  const summaryLines = [];
+  if (rows.length > 1) {
+    summaryLines.push(
+      `Total federal deductible mortgage interest across all loan periods = ${formatCurrency(totalFed)}.`,
+      isPost2017
+        ? `Total additional state mortgage interest deductible across all loan periods = ${formatCurrency(totalAdditional)}.`
+        : `Total eligible mortgage interest across all loan periods = ${formatCurrency(totalFed)}.`
+    );
+  }
+
+  return [...loanLines, ...summaryLines];
+}

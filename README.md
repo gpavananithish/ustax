@@ -30,7 +30,7 @@ The application is deployed and available at:
 
 ## 📌 Overview
 
-Under the **Tax Cuts and Jobs Act (TCJA)** and **IRS Publication 936**, taxpayers who hold mortgage debt exceeding statutory thresholds ($750,000 for post-2017 debt, $1,000,000 for pre-2017 debt) must limit their deductible mortgage interest on Schedule A (Form 1040). Furthermore, many states (e.g., California, New York) do not conform to the TCJA $750,000 federal cap and retain the legacy $1,000,000 limit, creating a state deduction adjustment.
+Under the **Tax Cuts and Jobs Act (TCJA)** and **IRS Publication 936**, taxpayers who hold mortgage debt exceeding statutory thresholds ($750,000 for post-2017 debt, $1,000,000 for pre-2017 debt) must limit their deductible mortgage interest on Schedule A (Form 1040). Furthermore, many states (e.g., California, New York) do not conform to the TCJA $750,000 federal limit and retain the legacy $1,000,000 limit, creating a state deduction adjustment.
 
 **US-Tax** streamlines this entire workflow for tax preparers, accountants, and taxpayers by:
 1. Calculating average loan balances according to IRS Pub 936 Table 1 methods.
@@ -44,8 +44,8 @@ Under the **Tax Cuts and Jobs Act (TCJA)** and **IRS Publication 936**, taxpayer
 ## ✨ Features
 
 - **Dual Acquisition Regimes**
-  - **Pre-2017**: Grandfathered debt acquired on or before Dec. 15, 2017 ($1,000,000 federal cap).
-  - **Post-2017**: TCJA debt acquired after Dec. 15, 2017 ($750,000 federal cap with state gap window).
+  - **Pre-2017**: Grandfathered debt acquired on or before Dec. 15, 2017 ($1,000,000 federal limit).
+  - **Post-2017**: TCJA debt acquired after Dec. 15, 2017 ($750,000 federal limit with state gap window).
 - **Comprehensive Loan Arrangements**
   - **Direct Loan**: Single ongoing mortgage using `(Beginning + Ending) ÷ 2` average balance.
   - **Refinance**: Sequential replacement loans calculated as `(Σ Average Balances) ÷ 2`, with dynamic loan entry (add as many loans as needed).
@@ -56,12 +56,20 @@ Under the **Tax Cuts and Jobs Act (TCJA)** and **IRS Publication 936**, taxpayer
 - **Configurable Percentage Precision**
   - Select between **1, 2, 3, 4, or 5 decimal places** (default: 3 decimals, e.g., `83.333%`).
   - Strict compliance with IRS rounding standards.
+- **Loan Limit Days Engine (Pro-Rated Active Days)**
+  - Enter annual interest rate (%) and active loan days.
+  - Built-in **Date Range Days Calculator**: select Start & End dates to compute exact calendar days (with automatic leap day detection and quick tax quarter presets: Q1, Q2, Q3, Q4, H1, H2, FY).
+  - One-click application of calculated days directly to any active loan.
+  - Option to toggle standard year (**365 days**) vs. leap year (**366 days**).
+  - Calculates pro-rated statutory limits: `(Limit × Interest Rate × Days) ÷ (100 × 365/366)`.
+  - Computes Federal deductible, State total, and Additional State benefit.
+  - Generates line-by-line copyable statements for Drake Tax.
 - **Drake Software-Ready Explanations**
   - Formats line-by-line descriptions ready to paste into Drake Tax return description screens.
   - Switch between **Simple** and **Detailed** descriptive statements.
   - One-click individual line copy or complete multi-line block copy.
 - **Interactive 3D Visualizer**
-  - 15° slanted 3D isometric representation of outstanding balances vs statutory caps.
+  - 15° slanted 3D isometric representation of outstanding balances vs statutory limits.
   - Toggle between **Deduction Split** (Federal vs State vs Disallowed) and **Debt Balance Overview**.
 
 ---
@@ -88,12 +96,12 @@ The calculation pipeline follows four distinct mathematical phases defined in `s
 ### Phase 3: Federal Limitation (IRS Table 1)
 - **Within Limit** (`Debt ≤ Limit`): `100%` deductible (`Ratio = 1.0`).
 - **Over Limit** (`Debt > Limit`):
-  $$\text{Federal Ratio} = \text{round}\left(\frac{\text{Federal Cap}}{\text{Net Mortgage}}, \text{decimals}\right) \quad (\text{e.g. } 0.694 \text{ for 3 decimals})$$
+  $$\text{Federal Ratio} = \text{round}\left(\frac{\text{Federal Limit}}{\text{Net Mortgage}}, \text{decimals}\right) \quad (\text{e.g. } 0.694 \text{ for 3 decimals})$$
   $$\text{Federal Percentage} = \text{Federal Ratio} \times 100 \quad (\text{e.g. } 69.4\%)$$
   $$\text{Federal Deductible} = \text{Federal Ratio} \times \text{Total Form 1098 Interest}$$
 
 ### Phase 4: State Conformity & Gap Window
-For post-2017 debt in states that retain the $1,000,000 cap:
+For post-2017 debt in states that retain the $1,000,000 limit:
 - **Case 4A** (`Debt ≤ $750,000`): State deductible equals Federal deductible (no adjustment needed).
 - **Case 4B (The Gap)** (`$750,000 < Debt ≤ $1,000,000`):
   - Federal interest is limited by the $750K ratio.

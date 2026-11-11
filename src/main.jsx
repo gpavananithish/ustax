@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './styles.css';
 import { calculateMortgageLimits } from './utils/calculations.js';
+import { LoanLimitDaysView } from './components/LoanLimitDaysView.jsx';
 
 const money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 });
 const number = (value) => Math.max(0, Number(String(value).replace(/,/g, '')) || 0);
@@ -10,7 +11,7 @@ const fmt = (value) => money.format(value);
 function Field({ label, value, onChange, hint }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-sm font-semibold text-slate-700">{label}</span>
+      <span className="mb-1.5 block text-xs sm:text-sm font-semibold text-slate-700">{label}</span>
       <input
         type="number"
         min="0"
@@ -18,7 +19,7 @@ function Field({ label, value, onChange, hint }) {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="0.00"
-        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-base sm:text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
       />
       {hint && <span className="mt-1 block text-xs text-slate-500">{hint}</span>}
     </label>
@@ -102,14 +103,14 @@ function Calculation3DView({ result, fmt, rule, decimals = 3 }) {
         },
       ];
     } else if (viewMode === 'balance') {
-      const maxCap = Math.max(result.outstanding, result.stateCap);
+      const maxLimit = Math.max(result.outstanding, result.stateLimit || result.stateCap);
       return [
         {
           id: 'outstanding',
           label: 'Net Mortgage Debt',
           subtitle: 'Average loan balance',
           value: result.outstanding,
-          totalRef: maxCap,
+          totalRef: maxLimit,
           theme: {
             front: 'bg-gradient-to-t from-blue-600 to-blue-400',
             top: '#93c5fd',
@@ -117,14 +118,14 @@ function Calculation3DView({ result, fmt, rule, decimals = 3 }) {
             badge: 'bg-blue-50 text-blue-700 border-blue-200',
             dot: 'bg-blue-500',
           },
-          tag: result.outstanding > result.federalLimit ? 'Exceeds Federal Cap' : 'Within Federal Cap',
+          tag: result.outstanding > result.federalLimit ? 'Exceeds Federal Limit' : 'Within Federal Limit',
         },
         {
           id: 'fed-limit',
           label: 'Federal Limit',
-          subtitle: rule === 'pre' ? 'Pre-2017 $1.0M cap' : 'Post-2017 $750K cap',
+          subtitle: rule === 'pre' ? 'Pre-2017 $1.0M limit' : 'Post-2017 $750K limit',
           value: result.federalLimit,
-          totalRef: maxCap,
+          totalRef: maxLimit,
           theme: {
             front: 'bg-gradient-to-t from-amber-600 to-amber-400',
             top: '#fcd34d',
@@ -135,11 +136,11 @@ function Calculation3DView({ result, fmt, rule, decimals = 3 }) {
           tag: `${fmt(result.federalLimit)} statutory limit`,
         },
         {
-          id: 'state-cap',
+          id: 'state-limit',
           label: 'State Limit',
           subtitle: 'State debt threshold',
-          value: result.stateCap,
-          totalRef: maxCap,
+          value: result.stateLimit || result.stateCap,
+          totalRef: maxLimit,
           theme: {
             front: 'bg-gradient-to-t from-emerald-600 to-emerald-400',
             top: '#6ee7b7',
@@ -147,7 +148,7 @@ function Calculation3DView({ result, fmt, rule, decimals = 3 }) {
             badge: 'bg-emerald-50 text-emerald-700 border-emerald-200',
             dot: 'bg-emerald-500',
           },
-          tag: `${fmt(result.stateCap)} state cap`,
+          tag: `${fmt(result.stateLimit || result.stateCap)} state limit`,
         },
       ];
     } else {
@@ -208,11 +209,11 @@ function Calculation3DView({ result, fmt, rule, decimals = 3 }) {
   const stageRotateY = -Math.round(tiltAngle * 0.7);
 
   return (
-    <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm">
       {/* Header with Title and Mode Tabs */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-5">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
             <span className="inline-flex h-6 items-center rounded-md bg-blue-100 px-2 text-xs font-bold uppercase tracking-wider text-blue-700">
               3D Calculation View
             </span>
@@ -223,48 +224,48 @@ function Calculation3DView({ result, fmt, rule, decimals = 3 }) {
               Ratio: {result.isFedLimited ? `${result.federalRatio.toFixed(decimals)} (${result.federalPercent}%)` : '100%'}
             </span>
           </div>
-          <h3 className="mt-1 text-xl font-bold text-slate-900">Visual Deduction Split</h3>
-          <p className="text-xs text-slate-500">Real-time 3D visual comparison of qualifying mortgage interest and debt caps.</p>
+          <h3 className="mt-1 text-lg sm:text-xl font-bold text-slate-900">Visual Deduction Split</h3>
+          <p className="text-xs text-slate-500">Real-time 3D visual comparison of qualifying mortgage interest and debt limits.</p>
         </div>
 
         {/* View Mode Tabs */}
-        <div className="flex flex-wrap items-center gap-1 rounded-xl bg-slate-100 p-1 text-xs font-semibold">
+        <div className="flex flex-wrap items-center gap-1 rounded-xl bg-slate-100 p-1 text-xs font-semibold w-full sm:w-auto">
           <button
             onClick={() => setViewMode('deduction')}
-            className={`rounded-lg px-3 py-1.5 transition ${viewMode === 'deduction' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+            className={`flex-1 sm:flex-none text-center rounded-lg px-2.5 sm:px-3 py-1.5 transition ${viewMode === 'deduction' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
           >
-            Interest Deduction Split
+            Deduction Split
           </button>
           <button
             onClick={() => setViewMode('balance')}
-            className={`rounded-lg px-3 py-1.5 transition ${viewMode === 'balance' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+            className={`flex-1 sm:flex-none text-center rounded-lg px-2.5 sm:px-3 py-1.5 transition ${viewMode === 'balance' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
           >
-            Loan Balance vs Limit
+            Balance vs Limit
           </button>
           <button
             onClick={() => setViewMode('overview')}
-            className={`rounded-lg px-3 py-1.5 transition ${viewMode === 'overview' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+            className={`flex-1 sm:flex-none text-center rounded-lg px-2.5 sm:px-3 py-1.5 transition ${viewMode === 'overview' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
           >
-            Overview (3 Metrics)
+            Overview
           </button>
         </div>
       </div>
 
       {/* Controls Bar: Presets & Tilt Slider */}
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 px-4 py-2.5 text-xs text-slate-600">
-        <div className="flex items-center gap-2">
-          <span className="font-semibold text-slate-700">Slant Presets:</span>
+      <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl bg-slate-50 p-3 sm:px-4 sm:py-2.5 text-xs text-slate-600">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+          <span className="font-semibold text-slate-700 w-full xs:w-auto mr-1 sm:mr-0">Slant:</span>
           <button
             onClick={() => setTiltAngle(15)}
             className={`rounded-md px-2.5 py-1 font-medium transition ${tiltAngle === 15 ? 'bg-blue-600 text-white shadow-sm font-semibold' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'}`}
           >
-            15° Slant (Default)
+            15° (Default)
           </button>
           <button
             onClick={() => setTiltAngle(0)}
             className={`rounded-md px-2.5 py-1 font-medium transition ${tiltAngle === 0 ? 'bg-blue-600 text-white shadow-sm font-semibold' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'}`}
           >
-            0° Flat View
+            0° Flat
           </button>
           <button
             onClick={() => setTiltAngle(25)}
@@ -274,9 +275,9 @@ function Calculation3DView({ result, fmt, rule, decimals = 3 }) {
           </button>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-200/60">
           <label htmlFor="tilt-slider" className="font-semibold text-slate-700">
-            Slant Angle: <span className="font-bold text-blue-600">{tiltAngle}°</span>
+            Slant: <span className="font-bold text-blue-600">{tiltAngle}°</span>
           </label>
           <input
             id="tilt-slider"
@@ -286,13 +287,13 @@ function Calculation3DView({ result, fmt, rule, decimals = 3 }) {
             step="1"
             value={tiltAngle}
             onChange={(e) => setTiltAngle(Number(e.target.value))}
-            className="h-1.5 w-28 cursor-pointer accent-blue-600"
+            className="h-1.5 w-24 sm:w-28 cursor-pointer accent-blue-600"
           />
         </div>
       </div>
 
       {/* 3D Stage Canvas */}
-      <div className="stage-3d-viewport relative mt-6 flex min-h-[300px] w-full items-end justify-center overflow-hidden rounded-2xl border border-slate-200/80 bg-gradient-to-b from-slate-50 via-slate-100/70 to-blue-50/60 p-6 pb-12 pt-16">
+      <div className="stage-3d-viewport relative mt-6 flex min-h-[290px] sm:min-h-[320px] w-full items-end justify-center overflow-x-auto overflow-y-hidden rounded-2xl border border-slate-200/80 bg-gradient-to-b from-slate-50 via-slate-100/70 to-blue-50/60 p-3 sm:p-6 pb-10 sm:pb-12 pt-14 sm:pt-16">
         {/* Ambient perspective floor grid */}
         <div
           className="floor-grid-pattern pointer-events-none absolute inset-x-8 bottom-4 h-36 rounded-2xl opacity-60"
@@ -304,7 +305,7 @@ function Calculation3DView({ result, fmt, rule, decimals = 3 }) {
 
         {/* 3D Floor Platform */}
         <div
-          className="stage-3d-floor relative z-10 flex items-end justify-center gap-8 sm:gap-12 md:gap-16"
+          className="stage-3d-floor relative z-10 flex items-end justify-center gap-3 xs:gap-6 sm:gap-10 md:gap-14 lg:gap-16"
           style={{
             transform: `rotateX(${stageTilt}deg) rotateY(${stageRotateY}deg)`,
           }}
@@ -318,15 +319,14 @@ function Calculation3DView({ result, fmt, rule, decimals = 3 }) {
                 key={item.id}
                 onMouseEnter={() => setHoveredId(item.id)}
                 onMouseLeave={() => setHoveredId(null)}
-                className="pillar-3d-group relative flex flex-col items-center cursor-pointer group"
+                className="pillar-3d-group relative flex flex-col items-center cursor-pointer group w-14 sm:w-16 md:w-[76px]"
                 style={{
-                  width: 76,
                   height: h + 40,
                 }}
               >
                 {/* Floating Billboarded Value Badge */}
                 <div
-                  className={`pointer-events-none absolute left-1/2 whitespace-nowrap rounded-lg px-2.5 py-1 text-center text-xs font-bold shadow-lg transition-all duration-300 ${
+                  className={`pointer-events-none absolute left-1/2 whitespace-nowrap rounded-lg px-1.5 py-0.5 sm:px-2.5 sm:py-1 text-center font-bold shadow-lg transition-all duration-300 ${
                     isHovered
                       ? 'bg-slate-900 text-white scale-110 shadow-xl ring-2 ring-blue-400'
                       : 'bg-white/95 text-slate-900 shadow-md border border-slate-200'
@@ -337,8 +337,8 @@ function Calculation3DView({ result, fmt, rule, decimals = 3 }) {
                     transformOrigin: 'center center',
                   }}
                 >
-                  <span className="block">{fmt(item.value)}</span>
-                  <span className="block text-[9px] font-medium opacity-80">{item.tag}</span>
+                  <span className="block text-[11px] sm:text-xs">{fmt(item.value)}</span>
+                  <span className="block text-[8px] sm:text-[9px] font-medium opacity-80">{item.tag}</span>
                 </div>
 
                 {/* 3D Pillar Body */}
@@ -357,7 +357,7 @@ function Calculation3DView({ result, fmt, rule, decimals = 3 }) {
                     style={{ height: h }}
                   />
 
-                  {/* Top Face (Cap) */}
+                  {/* Top Face */}
                   <div
                     className="pillar-face-top transition-all duration-300"
                     style={{
@@ -383,7 +383,7 @@ function Calculation3DView({ result, fmt, rule, decimals = 3 }) {
       </div>
 
       {/* Upright Metric Detail Cards Below 3D Stage */}
-      <div className={`mt-6 grid gap-4 grid-cols-1 sm:grid-cols-2 ${items.length === 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
+      <div className={`mt-6 grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 ${items.length === 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
         {items.map((item) => {
           const isHovered = hoveredId === item.id;
           return (
@@ -391,7 +391,7 @@ function Calculation3DView({ result, fmt, rule, decimals = 3 }) {
               key={item.id}
               onMouseEnter={() => setHoveredId(item.id)}
               onMouseLeave={() => setHoveredId(null)}
-              className={`rounded-xl border p-4 transition-all duration-200 cursor-pointer ${
+              className={`rounded-xl border p-3.5 sm:p-4 transition-all duration-200 cursor-pointer ${
                 isHovered
                   ? 'border-blue-500 bg-blue-50/40 shadow-md ring-1 ring-blue-200'
                   : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/60'
@@ -399,7 +399,7 @@ function Calculation3DView({ result, fmt, rule, decimals = 3 }) {
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className={`h-3 w-3 rounded-full ${item.theme.dot}`} />
+                  <span className={`h-2.5 w-2.5 rounded-full ${item.theme.dot}`} />
                   <span className="text-xs font-bold text-slate-700">{item.label}</span>
                 </div>
                 <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${item.theme.badge}`}>
@@ -407,7 +407,7 @@ function Calculation3DView({ result, fmt, rule, decimals = 3 }) {
                 </span>
               </div>
               <div className="mt-2.5">
-                <div className="text-2xl font-bold tracking-tight text-slate-900">{fmt(item.value)}</div>
+                <div className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 break-words">{fmt(item.value)}</div>
                 <div className="mt-0.5 text-xs text-slate-500">{item.subtitle}</div>
               </div>
             </div>
@@ -416,19 +416,19 @@ function Calculation3DView({ result, fmt, rule, decimals = 3 }) {
       </div>
 
       {/* Calculation Summary Footer */}
-      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 text-xs text-slate-600">
-        <div className="flex items-center gap-2">
+      <div className="mt-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 rounded-xl border border-slate-100 bg-slate-50 p-3 sm:px-4 sm:py-3 text-xs text-slate-600">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="font-semibold text-slate-700">Federal Deduction Ratio:</span>
           <span className="font-bold text-blue-700">
             {result.isFedLimited ? `${result.federalRatio.toFixed(decimals)} (${result.federalPercent}%)` : '100%'}
           </span>
-          <span className="text-slate-400">·</span>
+          <span className="text-slate-400 hidden xs:inline">·</span>
           <span>
-            Applicable Cap: <b className="text-slate-800">{fmt(result.federalLimit)}</b> ({rule === 'pre' ? 'Pre-2017' : 'Post-2017'})
+            Applicable Limit: <b className="text-slate-800">{fmt(result.federalLimit)}</b> ({rule === 'pre' ? 'Pre-2017' : 'Post-2017'})
           </span>
         </div>
         <div className="text-slate-500">
-          State Deductible: <b className="text-emerald-700">{fmt(result.stateTotal)}</b> (State cap: {fmt(result.stateCap)})
+          State Deductible: <b className="text-emerald-700">{fmt(result.stateTotal)}</b> (State limit: {fmt(result.stateLimit || result.stateCap)})
         </div>
       </div>
     </section>
@@ -436,6 +436,7 @@ function Calculation3DView({ result, fmt, rule, decimals = 3 }) {
 }
 
 function App() {
+  const [activeTab, setActiveTab] = useState('balance'); // 'balance' | 'days'
   const [rule, setRule] = useState('post');
   const [loanType, setLoanType] = useState('direct');
   const [decimals, setDecimals] = useState(3); // 1, 2, 3, 4, 5 (3 is default)
@@ -482,44 +483,66 @@ function App() {
 
   return (
     <main className="min-h-screen text-slate-900">
-      <header className="border-b border-slate-200 bg-white/90 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
-          <div className="flex items-center gap-3">
-            <img src="/favicon.svg" alt="US-Tax Logo" className="h-10 w-10 rounded-xl shadow-sm" />
+      <header className="border-b border-slate-200 bg-white/95 backdrop-blur sticky top-0 z-30">
+        <div className="mx-auto flex max-w-7xl flex-col sm:flex-row items-center justify-between gap-3 px-3.5 sm:px-5 py-3 sm:py-4">
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <img src="/favicon.svg" alt="US-Tax Logo" className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl shadow-sm shrink-0" />
             <div>
-              <h1 className="font-bold text-lg leading-tight">US-Tax</h1>
-              <p className="text-xs text-slate-500">Mortgage Limit Studio · 1098 deduction workspace</p>
+              <h1 className="font-bold text-base sm:text-lg leading-tight">US-Tax</h1>
+              <p className="text-[11px] sm:text-xs text-slate-500">Mortgage Limit Studio · 1098 deduction workspace</p>
             </div>
           </div>
-          <nav className="flex gap-1 rounded-xl bg-slate-100 p-1 text-sm font-medium">
-            <button className="rounded-lg bg-white px-3 py-2 text-blue-700 shadow-sm">Loan limit calculation</button>
-            <button disabled className="cursor-not-allowed rounded-lg px-3 py-2 text-slate-400">
-              Loan limit days <span className="text-[10px]">Soon</span>
+          <nav className="flex w-full sm:w-auto gap-1 rounded-xl bg-slate-100 p-1 text-xs sm:text-sm font-medium">
+            <button
+              type="button"
+              onClick={() => setActiveTab('balance')}
+              className={`flex-1 sm:flex-none text-center rounded-lg px-3 py-2 transition ${
+                activeTab === 'balance'
+                  ? 'bg-white text-blue-700 shadow-sm font-semibold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Loan limit calculation
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('days')}
+              className={`flex-1 sm:flex-none text-center rounded-lg px-3 py-2 transition ${
+                activeTab === 'days'
+                  ? 'bg-white text-blue-700 shadow-sm font-semibold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Loan limit days
             </button>
           </nav>
         </div>
       </header>
-      <section className="mx-auto max-w-7xl px-5 py-8">
-        <div className="mb-7 max-w-2xl">
-          <p className="mb-2 text-sm font-bold uppercase tracking-widest text-blue-600">Mortgage interest worksheet</p>
-          <h2 className="text-3xl font-bold tracking-tight">Calculate the limit. Copy the explanation.</h2>
-          <p className="mt-2 text-slate-600">
+
+      {activeTab === 'days' ? (
+        <LoanLimitDaysView />
+      ) : (
+        <section className="mx-auto max-w-7xl px-3.5 sm:px-5 py-5 sm:py-8">
+        <div className="mb-6 sm:mb-7 max-w-2xl">
+          <p className="mb-2 text-xs sm:text-sm font-bold uppercase tracking-widest text-blue-600">Mortgage interest worksheet</p>
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Calculate the limit. Copy the explanation.</h2>
+          <p className="mt-2 text-xs sm:text-sm text-slate-600">
             Enter the balances and Form 1098 interest for each loan. Every calculation line is ready to paste into your tax return description.
           </p>
         </div>
         <div className="grid gap-6 lg:grid-cols-[1.06fr_.94fr]">
           <div className="space-y-5">
             {/* Acquisition Date Rule */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
               <p className="mb-3 text-sm font-bold text-slate-700">Acquisition date rule</p>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 gap-2">
                 <button
                   onClick={() => setRule('pre')}
                   className={`rounded-xl border p-3 text-left transition ${
                     rule === 'pre' ? 'border-blue-600 bg-blue-50 ring-2 ring-blue-100' : 'border-slate-200 hover:border-slate-300'
                   }`}
                 >
-                  <b className="block">Pre-2017</b>
+                  <b className="block text-sm sm:text-base">Pre-2017</b>
                   <span className="text-xs text-slate-500">Bought on/before Dec. 15, 2017 · $1M limit</span>
                 </button>
                 <button
@@ -528,16 +551,16 @@ function App() {
                     rule === 'post' ? 'border-blue-600 bg-blue-50 ring-2 ring-blue-100' : 'border-slate-200 hover:border-slate-300'
                   }`}
                 >
-                  <b className="block">Post-2017</b>
+                  <b className="block text-sm sm:text-base">Post-2017</b>
                   <span className="text-xs text-slate-500">Bought after Dec. 15, 2017 · $750K federal</span>
                 </button>
               </div>
             </div>
 
             {/* Loan Arrangement */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
               <p className="mb-3 text-sm font-bold text-slate-700">Loan arrangement</p>
-              <div className="grid gap-2 sm:grid-cols-3">
+              <div className="grid gap-2 grid-cols-1 sm:grid-cols-3">
                 {[
                   ['direct', 'Direct loan', 'One loan'],
                   ['refinance', 'Refinance', 'Two or more loans'],
@@ -546,8 +569,8 @@ function App() {
                   <button
                     key={id}
                     onClick={() => switchType(id)}
-                    className={`rounded-xl border p-3 text-left ${
-                      loanType === id ? 'border-blue-600 bg-blue-50' : 'border-slate-200 hover:border-slate-300'
+                    className={`rounded-xl border p-3 text-left transition ${
+                      loanType === id ? 'border-blue-600 bg-blue-50 ring-2 ring-blue-100' : 'border-slate-200 hover:border-slate-300'
                     }`}
                   >
                     <b className="block text-sm">{title}</b>
@@ -558,65 +581,67 @@ function App() {
             </div>
 
             {/* Percentage Decimal Places Option */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="mb-3 flex items-center justify-between">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
+              <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5">
                 <div>
                   <p className="text-sm font-bold text-slate-700">Ratio decimal places (IRS Pub 936)</p>
                   <p className="text-xs text-slate-500">
                     Digits considered before multiplying by 100 (e.g. 0.694 = 3 digits)
                   </p>
                 </div>
-                <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700">
-                  {decimals} decimal{decimals > 1 ? 's' : ''} {decimals === 3 ? '(Default · IRS Standard)' : ''}
+                <span className="self-start sm:self-auto rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700">
+                  {decimals} decimal{decimals > 1 ? 's' : ''} {decimals === 3 ? '(Default · IRS)' : ''}
                 </span>
               </div>
-              <div className="grid grid-cols-5 gap-2">
+              <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
                 {[1, 2, 3, 4, 5].map((d) => (
                   <button
                     key={d}
                     type="button"
                     onClick={() => setDecimals(d)}
-                    className={`flex flex-col items-center justify-center rounded-xl border py-2.5 transition ${
+                    className={`flex flex-col items-center justify-center rounded-xl border py-2 sm:py-2.5 transition ${
                       decimals === d
                         ? 'border-blue-600 bg-blue-50 text-blue-700 font-bold ring-2 ring-blue-100 shadow-sm'
                         : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
                     }`}
                   >
-                    <span className="text-base font-bold">{d}</span>
-                    <span className="text-[10px] text-slate-500">{d === 3 ? 'Default (IRS)' : `${d} digit${d > 1 ? 's' : ''}`}</span>
+                    <span className="text-sm sm:text-base font-bold">{d}</span>
+                    <span className="text-[9px] sm:text-[10px] text-slate-500 truncate max-w-full px-0.5">
+                      {d === 3 ? 'IRS' : `${d}d`}
+                    </span>
                   </button>
                 ))}
               </div>
             </div>
 
             {/* Loan Details */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="mb-4 flex items-center justify-between">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <p className="font-bold">Loan details</p>
+                  <p className="font-bold text-slate-900">Loan details</p>
                   <p className="text-xs text-slate-500">Use average balance: (beginning + ending) ÷ 2</p>
                 </div>
                 {loanType === 'refinance' && (
                   <button
                     onClick={() => setLoans([...displayLoans, { name: `Loan ${displayLoans.length + 1}`, start: '', end: '', interest: '' }])}
-                    className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white"
+                    className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs sm:text-sm font-semibold text-white hover:bg-slate-800 transition"
                   >
                     + Add other loan
                   </button>
                 )}
               </div>
-              <div className="space-y-5">
+              <div className="space-y-4">
                 {displayLoans.map((loan, i) => (
-                  <div key={i} className="rounded-xl bg-slate-50 p-4">
-                    <div className="mb-3 flex justify-between">
-                      <b className="text-sm">{loanType === 'first-second' ? (i === 0 ? '1st loan' : '2nd loan') : loan.name}</b>
+                  <div key={i} className="rounded-xl bg-slate-50 p-3.5 sm:p-4 border border-slate-100">
+                    <div className="mb-3 flex justify-between items-center">
+                      <b className="text-sm text-slate-800">{loanType === 'first-second' ? (i === 0 ? '1st loan' : '2nd loan') : loan.name}</b>
                       {loanType === 'refinance' && displayLoans.length > 2 && (
-                        <button onClick={() => setLoans(displayLoans.filter((_, x) => x !== i))} className="text-xs font-semibold text-rose-600">
+                        <button onClick={() => setLoans(displayLoans.filter((_, x) => x !== i))} className="text-xs font-semibold text-rose-600 hover:text-rose-800">
                           Remove
                         </button>
                       )}
                     </div>
-                    <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
                       <Field label="Beginning balance" value={loan.start} onChange={(v) => updateLoan(i, 'start', v)} />
                       <Field label="Ending balance" value={loan.end} onChange={(v) => updateLoan(i, 'end', v)} />
                       <Field label="1098 interest" value={loan.interest} onChange={(v) => updateLoan(i, 'interest', v)} />
@@ -629,36 +654,36 @@ function App() {
 
           {/* Right Column: Eligible Deduction & Return Description */}
           <div className="space-y-5">
-            <div className="rounded-2xl bg-slate-950 p-6 text-white shadow-xl">
-              <p className="text-sm font-bold uppercase tracking-widest text-blue-300">Eligible deduction</p>
-              <div className="mt-4 grid grid-cols-2 gap-5">
+            <div className="rounded-2xl bg-slate-950 p-5 sm:p-6 text-white shadow-xl">
+              <p className="text-xs sm:text-sm font-bold uppercase tracking-widest text-blue-300">Eligible deduction</p>
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
                 <div>
-                  <p className="text-sm text-slate-400">Federal</p>
-                  <p className="mt-1 text-3xl font-bold">{fmt(result.federal)}</p>
-                  <p className="mt-1 text-xs text-slate-400">Limit: {fmt(result.federalLimit)}</p>
+                  <p className="text-xs sm:text-sm text-slate-400">Federal</p>
+                  <p className="mt-1 text-2xl sm:text-3xl font-bold tracking-tight text-white break-words">{fmt(result.federal)}</p>
+                  <p className="mt-1 text-[11px] sm:text-xs text-slate-400">Limit: {fmt(result.federalLimit)}</p>
                 </div>
-                <div className="border-l border-slate-700 pl-5">
-                  <p className="text-sm text-slate-400">Additional state</p>
-                  <p className="mt-1 text-3xl font-bold text-emerald-300">{fmt(result.stateAdditional)}</p>
-                  <p className="mt-1 text-xs text-slate-400">State total: {fmt(result.stateTotal)}</p>
+                <div className="border-t sm:border-t-0 sm:border-l border-slate-800 pt-3 sm:pt-0 sm:pl-5">
+                  <p className="text-xs sm:text-sm text-slate-400">Additional state</p>
+                  <p className="mt-1 text-2xl sm:text-3xl font-bold tracking-tight text-emerald-300 break-words">{fmt(result.stateAdditional)}</p>
+                  <p className="mt-1 text-[11px] sm:text-xs text-slate-400">State total: {fmt(result.stateTotal)}</p>
                 </div>
               </div>
-              <div className="mt-5 border-t border-slate-800 pt-4 text-sm text-slate-300">
-                Net mortgage: <b className="text-white">{fmt(result.outstanding)}</b> · Form 1098 interest:{' '}
-                <b className="text-white">{fmt(result.interest)}</b> · Ratio:{' '}
-                <b className="text-white">
-                  {result.isFedLimited ? `${result.federalRatio.toFixed(decimals)} (${result.federalPercent}%)` : '100%'}
-                </b>
+              <div className="mt-5 border-t border-slate-800 pt-4 text-xs sm:text-sm text-slate-300 flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span>Net mortgage: <b className="text-white">{fmt(result.outstanding)}</b></span>
+                <span className="text-slate-600">·</span>
+                <span>Form 1098 interest: <b className="text-white">{fmt(result.interest)}</b></span>
+                <span className="text-slate-600">·</span>
+                <span>Ratio: <b className="text-white">{result.isFedLimited ? `${result.federalRatio.toFixed(decimals)} (${result.federalPercent}%)` : '100%'}</b></span>
               </div>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
+              <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
                 <div>
-                  <p className="font-bold">Return description</p>
+                  <p className="font-bold text-slate-900">Return description</p>
                   <p className="text-xs text-slate-500">Copy individual lines into Drake</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 self-start sm:self-auto">
                   <div className="inline-flex rounded-lg bg-slate-100 p-0.5 text-xs font-semibold">
                     <button
                       type="button"
@@ -681,7 +706,7 @@ function App() {
                   </div>
                   <button
                     onClick={() => copy(lines.join('\n'), 'all')}
-                    className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                    className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
                   >
                     {copied === 'all' ? 'Copied all!' : 'Copy all'}
                   </button>
@@ -689,12 +714,12 @@ function App() {
               </div>
               <div className="max-h-[440px] space-y-2 overflow-auto pr-1">
                 {lines.map((line, i) => (
-                  <div key={i} className="group flex items-center justify-between gap-2 rounded-xl border border-slate-100 bg-slate-50 p-2.5">
-                    <p className="flex-1 font-mono text-xs sm:text-sm leading-5 text-slate-800">{line}</p>
+                  <div key={i} className="group flex items-center justify-between gap-2 rounded-xl border border-slate-100 bg-slate-50 p-2 sm:p-2.5">
+                    <p className="flex-1 font-mono text-xs sm:text-sm leading-5 text-slate-800 break-words min-w-0 pr-1">{line}</p>
                     <button
                       onClick={() => copy(line, String(i))}
                       aria-label="Copy line"
-                      className="h-8 shrink-0 rounded-lg bg-white px-2.5 text-xs font-bold text-blue-700 shadow-sm ring-1 ring-slate-200 hover:bg-blue-50"
+                      className="h-8 shrink-0 rounded-lg bg-white px-2.5 text-xs font-bold text-blue-700 shadow-sm ring-1 ring-slate-200 hover:bg-blue-50 transition"
                     >
                       {copied === String(i) ? '✓ Copied' : 'Copy'}
                     </button>
@@ -712,6 +737,7 @@ function App() {
           Calculation aid only. Confirm acquisition debt, refinance tracing, state rules, and the applicable tax-year guidance before filing.
         </p>
       </section>
+      )}
     </main>
   );
 }
