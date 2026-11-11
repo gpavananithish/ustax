@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 
 /**
- * Boxed Date Input component formatted as MM-DD-YYYY.
- * Provides separate styled boxes for MM, DD, and YYYY terms with
- * automatic focus advance, digit-only filtering, paste support,
- * and a synchronized calendar picker icon.
+ * Compact, unified MM-DD-YYYY date input capsule.
+ * Features inline segmented slots for MM, DD, and YYYY with auto-advance,
+ * digit-only filtering, paste handling, and an integrated calendar trigger.
  */
 export function DateBoxInput({ label, value, onChange }) {
   const [mm, setMm] = useState('');
@@ -101,7 +100,6 @@ export function DateBoxInput({ label, value, onChange }) {
   const handlePaste = (e) => {
     e.preventDefault();
     const text = e.clipboardData.getData('text').trim();
-    // Support MM/DD/YYYY, MM-DD-YYYY, MM.DD.YYYY or YYYY-MM-DD
     const m1 = text.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
     const m2 = text.match(/^(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})$/);
     if (m1) {
@@ -135,83 +133,72 @@ export function DateBoxInput({ label, value, onChange }) {
 
   return (
     <div className="block">
-      <div className="mb-1.5 flex items-center justify-between">
+      <div className="mb-1 flex items-center justify-between">
         <span className="text-xs font-semibold text-slate-700">{label}</span>
-        <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
-          MM-DD-YYYY
-        </span>
+        <span className="text-[10px] font-semibold text-blue-600">MM/DD/YYYY</span>
       </div>
 
-      <div className="flex items-center gap-1.5 sm:gap-2">
-        {/* MM Box */}
-        <div className="flex flex-col items-center">
-          <input
-            ref={mmRef}
-            type="text"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            maxLength={2}
-            placeholder="MM"
-            value={mm}
-            onChange={handleMmChange}
-            onBlur={handleMmBlur}
-            onPaste={handlePaste}
-            className="w-12 h-10 rounded-xl border border-slate-300 bg-white text-center text-sm font-bold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 shadow-xs"
-          />
-          <span className="text-[9px] font-bold uppercase text-slate-400 mt-0.5">MM</span>
-        </div>
+      <div className="flex h-9 w-full max-w-[240px] items-center rounded-xl border border-slate-300 bg-white px-2.5 shadow-xs transition focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 hover:border-slate-400">
+        {/* MM */}
+        <input
+          ref={mmRef}
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          maxLength={2}
+          placeholder="MM"
+          value={mm}
+          onChange={handleMmChange}
+          onBlur={handleMmBlur}
+          onPaste={handlePaste}
+          className="w-7 bg-transparent text-center text-xs font-bold text-slate-800 placeholder:text-slate-400 placeholder:font-normal outline-none"
+        />
 
-        <span className="text-slate-400 font-bold text-sm mb-3">/</span>
+        <span className="select-none text-xs font-bold text-slate-300 px-0.5">/</span>
 
-        {/* DD Box */}
-        <div className="flex flex-col items-center">
-          <input
-            ref={ddRef}
-            type="text"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            maxLength={2}
-            placeholder="DD"
-            value={dd}
-            onChange={handleDdChange}
-            onBlur={handleDdBlur}
-            onKeyDown={handleDdKeyDown}
-            onPaste={handlePaste}
-            className="w-12 h-10 rounded-xl border border-slate-300 bg-white text-center text-sm font-bold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 shadow-xs"
-          />
-          <span className="text-[9px] font-bold uppercase text-slate-400 mt-0.5">DD</span>
-        </div>
+        {/* DD */}
+        <input
+          ref={ddRef}
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          maxLength={2}
+          placeholder="DD"
+          value={dd}
+          onChange={handleDdChange}
+          onBlur={handleDdBlur}
+          onKeyDown={handleDdKeyDown}
+          onPaste={handlePaste}
+          className="w-7 bg-transparent text-center text-xs font-bold text-slate-800 placeholder:text-slate-400 placeholder:font-normal outline-none"
+        />
 
-        <span className="text-slate-400 font-bold text-sm mb-3">/</span>
+        <span className="select-none text-xs font-bold text-slate-300 px-0.5">/</span>
 
-        {/* YYYY Box */}
-        <div className="flex flex-col items-center">
-          <input
-            ref={yyyyRef}
-            type="text"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            maxLength={4}
-            placeholder="YYYY"
-            value={yyyy}
-            onChange={handleYyyyChange}
-            onKeyDown={handleYyyyKeyDown}
-            onPaste={handlePaste}
-            className="w-20 h-10 rounded-xl border border-slate-300 bg-white text-center text-sm font-bold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 shadow-xs"
-          />
-          <span className="text-[9px] font-bold uppercase text-slate-400 mt-0.5">YYYY</span>
-        </div>
+        {/* YYYY */}
+        <input
+          ref={yyyyRef}
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          maxLength={4}
+          placeholder="YYYY"
+          value={yyyy}
+          onChange={handleYyyyChange}
+          onKeyDown={handleYyyyKeyDown}
+          onPaste={handlePaste}
+          className="w-11 bg-transparent text-center text-xs font-bold text-slate-800 placeholder:text-slate-400 placeholder:font-normal outline-none"
+        />
 
-        {/* Calendar Picker Button */}
-        <div className="mb-3.5 ml-1">
+        {/* Integrated Calendar Trigger */}
+        <div className="ml-auto flex items-center pl-1.5 border-l border-slate-200">
           <button
             type="button"
             onClick={openCalendar}
-            className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 transition shadow-xs cursor-pointer active:scale-95"
+            className="flex h-6 w-6 items-center justify-center rounded text-slate-400 hover:bg-blue-50 hover:text-blue-700 transition cursor-pointer active:scale-95"
             title="Open calendar picker"
             aria-label={`Open calendar picker for ${label}`}
           >
-            <span className="text-base">📅</span>
+            <span className="text-xs">📅</span>
           </button>
           <input
             ref={hiddenPickerRef}
