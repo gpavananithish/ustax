@@ -441,14 +441,7 @@ export function LoanLimitDaysView() {
                       <div>
                         <div className="mb-1.5 flex items-center justify-between">
                           <span className="text-xs font-semibold text-slate-700">Number of days</span>
-                          <button
-                            type="button"
-                            onClick={() => updatePeriod(i, 'showDateHelper', !period.showDateHelper)}
-                            className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 hover:text-blue-900 transition underline underline-offset-2 cursor-pointer"
-                          >
-                            <span>📅</span>
-                            <span>{period.showDateHelper ? 'Hide dates' : 'Calculate from dates'}</span>
-                          </button>
+                          <span className="text-[11px] font-bold text-slate-500">out of {yearDays}</span>
                         </div>
                         <div className="relative">
                           <input
