@@ -198,47 +198,36 @@ export function LoanLimitDaysView() {
             </div>
           </div>
 
-          {/* Tax Year Type (Regular vs Leap Year) */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
-            <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5">
-              <div>
-                <p className="text-sm font-bold text-slate-700">Tax year basis</p>
-                <p className="text-xs text-slate-500">Select standard (365 days) or leap year (366 days)</p>
-              </div>
-              <span className="self-start sm:self-auto rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700">
+          {/* Tax Year Type (Compact: Normal 365 vs Leap 366) */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 shadow-xs">
+            <div className="flex items-center gap-2">
+              <span className="text-xs sm:text-sm font-bold text-slate-800">Tax Year:</span>
+              <span className="rounded-md bg-blue-50 px-2 py-0.5 text-[11px] font-bold text-blue-700">
                 {yearDays} days denominator
               </span>
             </div>
-            <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 gap-2">
+            <div className="inline-flex rounded-lg bg-slate-100 p-1 text-xs font-semibold self-start sm:self-auto">
               <button
                 type="button"
                 onClick={() => setIsLeapYear(false)}
-                className={`flex items-center justify-between rounded-xl border p-3 transition ${
+                className={`rounded-md px-3 py-1 text-xs font-bold transition cursor-pointer ${
                   !isLeapYear
-                    ? 'border-blue-600 bg-blue-50 text-blue-900 ring-2 ring-blue-100 font-semibold'
-                    : 'border-slate-200 hover:border-slate-300 text-slate-700'
+                    ? 'bg-white text-blue-700 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                <div className="text-left">
-                  <span className="block text-sm font-bold">Standard Year</span>
-                  <span className="text-xs text-slate-500">365 Days</span>
-                </div>
-                {!isLeapYear && <span className="text-blue-600 font-bold">✓</span>}
+                Normal (365 days)
               </button>
               <button
                 type="button"
                 onClick={() => setIsLeapYear(true)}
-                className={`flex items-center justify-between rounded-xl border p-3 transition ${
+                className={`rounded-md px-3 py-1 text-xs font-bold transition cursor-pointer ${
                   isLeapYear
-                    ? 'border-blue-600 bg-blue-50 text-blue-900 ring-2 ring-blue-100 font-semibold'
-                    : 'border-slate-200 hover:border-slate-300 text-slate-700'
+                    ? 'bg-white text-blue-700 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                <div className="text-left">
-                  <span className="block text-sm font-bold">Leap Year</span>
-                  <span className="text-xs text-slate-500">366 Days</span>
-                </div>
-                {isLeapYear && <span className="text-blue-600 font-bold">✓</span>}
+                Leap Year (366 days)
               </button>
             </div>
           </div>
