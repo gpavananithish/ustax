@@ -1,6 +1,13 @@
 import { useMemo, useState } from 'react';
 import { calculateLoanLimitDays } from '../utils/calculations.js';
 import { formatCurrency } from '../utils/formatters.js';
+import { DateBoxInput } from './DateBoxInput.jsx';
+
+const formatDateToUs = (iso) => {
+  if (!iso || !iso.includes('-')) return '';
+  const [y, m, d] = iso.split('-');
+  return `${m}-${d}-${y}`;
+};
 
 export function LoanLimitDaysView() {
   const [rule, setRule] = useState('post'); // 'post' | 'pre'
@@ -331,30 +338,22 @@ export function LoanLimitDaysView() {
                           ))}
                         </div>
 
-                        {/* Date Inputs */}
-                        <div className="grid gap-2.5 grid-cols-1 sm:grid-cols-2">
-                          <label className="block">
-                            <span className="mb-1 block text-xs font-semibold text-slate-700">Start date</span>
-                            <input
-                              type="date"
-                              value={period.startDate || ''}
-                              onChange={(e) =>
-                                handleInlineDateChange(i, e.target.value, period.endDate || '', period.isInclusive ?? true)
-                              }
-                              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                            />
-                          </label>
-                          <label className="block">
-                            <span className="mb-1 block text-xs font-semibold text-slate-700">End date</span>
-                            <input
-                              type="date"
-                              value={period.endDate || ''}
-                              onChange={(e) =>
-                                handleInlineDateChange(i, period.startDate || '', e.target.value, period.isInclusive ?? true)
-                              }
-                              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                            />
-                          </label>
+                        {/* Date Inputs with Boxed MM-DD-YYYY Format */}
+                        <div className="grid gap-3.5 grid-cols-1 md:grid-cols-2">
+                          <DateBoxInput
+                            label="Start date"
+                            value={period.startDate || ''}
+                            onChange={(newStart) =>
+                              handleInlineDateChange(i, newStart, period.endDate || '', period.isInclusive ?? true)
+                            }
+                          />
+                          <DateBoxInput
+                            label="End date"
+                            value={period.endDate || ''}
+                            onChange={(newEnd) =>
+                              handleInlineDateChange(i, period.startDate || '', newEnd, period.isInclusive ?? true)
+                            }
+                          />
                         </div>
 
                         {/* Inclusive Checkbox & Dynamic Summary */}
@@ -372,10 +371,15 @@ export function LoanLimitDaysView() {
                           </label>
 
                           {period.startDate && period.endDate && !period.dateError && (
-                            <div className="rounded-lg bg-blue-100/80 px-3 py-1 text-xs font-bold text-blue-900 flex items-center gap-1.5 flex-wrap">
-                              <span>✓ Applied:</span>
-                              <span className="text-sm font-extrabold text-blue-700">{period.days || 0}</span>
-                              <span>active days ({(((Number(period.days) || 0) / yearDays) * 100).toFixed(1)}% of year)</span>
+                            <div className="rounded-lg bg-blue-100/80 px-3 py-1 text-xs font-bold text-blue-900 flex items-center justify-between gap-2 flex-wrap">
+                              <div className="flex items-center gap-1.5">
+                                <span>✓ Applied:</span>
+                                <span className="text-sm font-extrabold text-blue-700">{period.days || 0}</span>
+                                <span>active days ({(((Number(period.days) || 0) / yearDays) * 100).toFixed(1)}% of year)</span>
+                              </div>
+                              <span className="font-mono text-[11px] font-semibold text-blue-800 bg-white/80 px-2 py-0.5 rounded border border-blue-200">
+                                {formatDateToUs(period.startDate)} → {formatDateToUs(period.endDate)}
+                              </span>
                             </div>
                           )}
                           {period.dateError && (
