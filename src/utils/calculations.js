@@ -563,6 +563,10 @@ function generateDaysReturnLines({
   totalAdditional,
   totalDays,
 }) {
+  if (totalDays === 0 || rows.every((r) => r.rateNum === 0 || r.daysNum === 0)) {
+    return ['Enter loan interest rate and active days above to generate Drake Tax return descriptions.'];
+  }
+
   const yearText = isLeapYear ? '366 days (Leap Year)' : '365 days';
 
   if (descStyle === 'simple') {

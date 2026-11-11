@@ -10,8 +10,8 @@ export function LoanLimitDaysView() {
     {
       id: 'loan-1',
       name: 'Loan 1',
-      rate: '6.5',
-      days: '120',
+      rate: '',
+      days: '',
       showDateHelper: false,
       startDate: '',
       endDate: '',
