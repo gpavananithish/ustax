@@ -20,13 +20,6 @@ export function LoanLimitDaysView() {
   ]);
   const [copied, setCopied] = useState('');
 
-  // Standalone Date Range Calculator State
-  const [calcStartDate, setCalcStartDate] = useState('');
-  const [calcEndDate, setCalcEndDate] = useState('');
-  const [isInclusive, setIsInclusive] = useState(true);
-  const [selectedTargetLoanIndex, setSelectedTargetLoanIndex] = useState(0);
-  const [dateCalcFeedback, setDateCalcFeedback] = useState('');
-
   const yearDays = isLeapYear ? 366 : 365;
 
   const updatePeriod = (index, key, value) => {
@@ -55,9 +48,6 @@ export function LoanLimitDaysView() {
 
   const removePeriod = (index) => {
     setPeriods((current) => current.filter((_, i) => i !== index));
-    if (selectedTargetLoanIndex >= index && selectedTargetLoanIndex > 0) {
-      setSelectedTargetLoanIndex((prev) => prev - 1);
-    }
   };
 
   const setPresetDays = (index, days) => {
@@ -77,7 +67,12 @@ export function LoanLimitDaysView() {
     if (newStart && newEnd) {
       const start = new Date(newStart + 'T00:00:00');
       const end = new Date(newEnd + 'T00:00:00');
-      if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && end >= start) {
+      if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+        if (end < start) {
+          updatePeriod(index, 'dateError', 'End date cannot be earlier than start date');
+          return;
+        }
+        updatePeriod(index, 'dateError', '');
         const diffMs = end.getTime() - start.getTime();
         const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24)) + (inclusive ? 1 : 0);
         updatePeriod(index, 'days', String(diffDays));
@@ -93,97 +88,39 @@ export function LoanLimitDaysView() {
           }
         }
       }
+    } else {
+      updatePeriod(index, 'dateError', '');
     }
   };
 
-  // Standalone Date difference calculation logic
-  const dateDiffResult = useMemo(() => {
-    if (!calcStartDate || !calcEndDate) return null;
-
-    const start = new Date(calcStartDate + 'T00:00:00');
-    const end = new Date(calcEndDate + 'T00:00:00');
-
-    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-      return { error: 'Invalid date entered' };
-    }
-
-    if (end < start) {
-      return { error: 'End date cannot be earlier than start date' };
-    }
-
-    const diffMs = end.getTime() - start.getTime();
-    const rawDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
-    const finalDays = rawDays + (isInclusive ? 1 : 0);
-
-    // Detect if February 29 occurs within the range
-    let includesLeapDay = false;
-    const startYear = start.getFullYear();
-    const endYear = end.getFullYear();
-    for (let yr = startYear; yr <= endYear; yr++) {
-      const feb29 = new Date(yr, 1, 29);
-      if (feb29.getMonth() === 1 && feb29.getDate() === 29 && feb29 >= start && feb29 <= end) {
-        includesLeapDay = true;
-        break;
-      }
-    }
-
-    const startFormatted = start.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-    const endFormatted = end.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-
-    return {
-      days: finalDays,
-      startFormatted,
-      endFormatted,
-      includesLeapDay,
-    };
-  }, [calcStartDate, calcEndDate, isInclusive]);
-
-  const applyCalculatedDaysToLoan = (targetIdx = selectedTargetLoanIndex) => {
-    if (!dateDiffResult || dateDiffResult.error || dateDiffResult.days <= 0) return;
-    const idx = Math.min(targetIdx, periods.length - 1);
-    updatePeriod(idx, 'days', String(dateDiffResult.days));
-
-    if (dateDiffResult.includesLeapDay && !isLeapYear) {
-      setIsLeapYear(true);
-    }
-
-    const targetName = periods[idx]?.name || `Loan ${idx + 1}`;
-    setDateCalcFeedback(`✓ Applied ${dateDiffResult.days} days to ${targetName}`);
-    setTimeout(() => setDateCalcFeedback(''), 2500);
-  };
-
-  const applyQuarterPreset = (quarter) => {
+  const applyInlinePreset = (index, presetKey) => {
     const currentYear = new Date().getFullYear();
-    if (quarter === 'Q1') {
-      setCalcStartDate(`${currentYear}-01-01`);
-      setCalcEndDate(`${currentYear}-03-31`);
-    } else if (quarter === 'Q2') {
-      setCalcStartDate(`${currentYear}-04-01`);
-      setCalcEndDate(`${currentYear}-06-30`);
-    } else if (quarter === 'Q3') {
-      setCalcStartDate(`${currentYear}-07-01`);
-      setCalcEndDate(`${currentYear}-09-30`);
-    } else if (quarter === 'Q4') {
-      setCalcStartDate(`${currentYear}-10-01`);
-      setCalcEndDate(`${currentYear}-12-31`);
-    } else if (quarter === 'H1') {
-      setCalcStartDate(`${currentYear}-01-01`);
-      setCalcEndDate(`${currentYear}-06-30`);
-    } else if (quarter === 'H2') {
-      setCalcStartDate(`${currentYear}-07-01`);
-      setCalcEndDate(`${currentYear}-12-31`);
-    } else if (quarter === 'FY') {
-      setCalcStartDate(`${currentYear}-01-01`);
-      setCalcEndDate(`${currentYear}-12-31`);
+    let start = '';
+    let end = '';
+    if (presetKey === 'Q1') {
+      start = `${currentYear}-01-01`;
+      end = `${currentYear}-03-31`;
+    } else if (presetKey === 'Q2') {
+      start = `${currentYear}-04-01`;
+      end = `${currentYear}-06-30`;
+    } else if (presetKey === 'Q3') {
+      start = `${currentYear}-07-01`;
+      end = `${currentYear}-09-30`;
+    } else if (presetKey === 'Q4') {
+      start = `${currentYear}-10-01`;
+      end = `${currentYear}-12-31`;
+    } else if (presetKey === 'H1') {
+      start = `${currentYear}-01-01`;
+      end = `${currentYear}-06-30`;
+    } else if (presetKey === 'H2') {
+      start = `${currentYear}-07-01`;
+      end = `${currentYear}-12-31`;
+    } else if (presetKey === 'FY') {
+      start = `${currentYear}-01-01`;
+      end = `${currentYear}-12-31`;
     }
+    const inclusive = periods[index]?.isInclusive ?? true;
+    handleInlineDateChange(index, start, end, inclusive);
   };
 
   const result = useMemo(() => {
@@ -334,28 +271,29 @@ export function LoanLimitDaysView() {
 
                 return (
                   <div key={period.id || i} className="rounded-xl bg-slate-50 p-3.5 sm:p-4 border border-slate-200">
-                    <div className="mb-3 flex items-center justify-between">
+                    <div className="mb-3 flex items-center justify-between gap-2 flex-wrap">
                       <div className="flex items-center gap-2">
-                        <span className="h-2 w-2 rounded-full bg-blue-500" />
-                        <b className="text-sm text-slate-800">{period.name}</b>
+                        <span className="h-2.5 w-2.5 rounded-full bg-blue-600 ring-2 ring-blue-100" />
+                        <b className="text-sm font-bold text-slate-800">{period.name}</b>
                       </div>
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
                           onClick={() => updatePeriod(i, 'showDateHelper', !period.showDateHelper)}
-                          className={`text-xs font-semibold px-2 py-0.5 rounded transition ${
+                          className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition shadow-sm cursor-pointer active:scale-95 ${
                             period.showDateHelper
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-white border border-slate-200 text-blue-700 hover:bg-blue-50'
+                              ? 'bg-slate-800 text-white hover:bg-slate-900 ring-2 ring-slate-300'
+                              : 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-200'
                           }`}
                         >
-                          {period.showDateHelper ? '✕ Hide Date Picker' : '📅 Calculate from Dates'}
+                          <span className="text-sm">📅</span>
+                          <span>{period.showDateHelper ? '✕ Close Date Calculator' : 'Calculate from Dates'}</span>
                         </button>
                         {periods.length > 1 && (
                           <button
                             type="button"
                             onClick={() => removePeriod(i)}
-                            className="text-xs font-semibold text-rose-600 hover:text-rose-800"
+                            className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition cursor-pointer"
                           >
                             Remove
                           </button>
@@ -365,49 +303,97 @@ export function LoanLimitDaysView() {
 
                     {/* Inline Date Picker Accordion */}
                     {period.showDateHelper && (
-                      <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50/50 p-3 animate-fade-in">
-                        <p className="text-xs font-bold text-blue-900 mb-2">
-                          Select date range for {period.name} (auto-calculates active days):
-                        </p>
-                        <div className="grid gap-2 grid-cols-1 sm:grid-cols-2">
+                      <div className="mb-4 rounded-xl border-2 border-blue-300 bg-gradient-to-b from-blue-50/80 to-white p-3.5 sm:p-4 shadow-sm animate-fade-in">
+                        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-blue-200 pb-2.5">
+                          <div className="flex items-center gap-2">
+                            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 text-sm font-bold text-white shadow-xs">
+                              📅
+                            </span>
+                            <div>
+                              <p className="text-xs sm:text-sm font-bold text-slate-900">
+                                Date Range Days Calculator — {period.name}
+                              </p>
+                              <p className="text-[11px] text-slate-500">
+                                Select start & end dates or pick a preset to automatically compute active days
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => updatePeriod(i, 'showDateHelper', false)}
+                            className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-bold text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+                          >
+                            ✕ Close
+                          </button>
+                        </div>
+
+                        {/* Presets Row */}
+                        <div className="mb-3 flex flex-wrap items-center gap-1.5">
+                          <span className="text-[11px] font-bold text-slate-600 mr-0.5">Presets:</span>
+                          {['Q1', 'Q2', 'Q3', 'Q4', 'H1', 'H2', 'FY'].map((q) => (
+                            <button
+                              key={q}
+                              type="button"
+                              onClick={() => applyInlinePreset(i, q)}
+                              className="rounded-md border border-blue-200 bg-white px-2 py-1 text-xs font-bold text-blue-700 shadow-xs hover:bg-blue-600 hover:text-white hover:border-blue-600 transition cursor-pointer"
+                            >
+                              {q}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Date Inputs */}
+                        <div className="grid gap-2.5 grid-cols-1 sm:grid-cols-2">
                           <label className="block">
-                            <span className="mb-1 block text-[11px] font-semibold text-slate-600">Start Date</span>
+                            <span className="mb-1 block text-xs font-semibold text-slate-700">Start date</span>
                             <input
                               type="date"
                               value={period.startDate || ''}
                               onChange={(e) =>
                                 handleInlineDateChange(i, e.target.value, period.endDate || '', period.isInclusive ?? true)
                               }
-                              className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-blue-500"
+                              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                             />
                           </label>
                           <label className="block">
-                            <span className="mb-1 block text-[11px] font-semibold text-slate-600">End Date</span>
+                            <span className="mb-1 block text-xs font-semibold text-slate-700">End date</span>
                             <input
                               type="date"
                               value={period.endDate || ''}
                               onChange={(e) =>
                                 handleInlineDateChange(i, period.startDate || '', e.target.value, period.isInclusive ?? true)
                               }
-                              className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-blue-500"
+                              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                             />
                           </label>
                         </div>
-                        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs">
-                          <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-slate-600">
+
+                        {/* Inclusive Checkbox & Dynamic Summary */}
+                        <div className="mt-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 border-t border-blue-100 pt-2.5">
+                          <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-700">
                             <input
                               type="checkbox"
                               checked={period.isInclusive ?? true}
                               onChange={(e) =>
                                 handleInlineDateChange(i, period.startDate || '', period.endDate || '', e.target.checked)
                               }
-                              className="rounded border-slate-300 text-blue-600"
+                              className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
                             />
-                            <span>Inclusive of both start & end dates</span>
+                            <span>Include both start & end dates (standard)</span>
                           </label>
-                          <span className="text-[11px] font-bold text-blue-700">
-                            Result: {period.days || 0} active days
-                          </span>
+
+                          {period.startDate && period.endDate && !period.dateError && (
+                            <div className="rounded-lg bg-blue-100/80 px-3 py-1 text-xs font-bold text-blue-900 flex items-center gap-1.5 flex-wrap">
+                              <span>✓ Applied:</span>
+                              <span className="text-sm font-extrabold text-blue-700">{period.days || 0}</span>
+                              <span>active days ({(((Number(period.days) || 0) / yearDays) * 100).toFixed(1)}% of year)</span>
+                            </div>
+                          )}
+                          {period.dateError && (
+                            <p className="text-xs font-bold text-rose-600">
+                              ⚠️ {period.dateError}
+                            </p>
+                          )}
                         </div>
                       </div>
                     )}
@@ -466,7 +452,14 @@ export function LoanLimitDaysView() {
                       <div>
                         <div className="mb-1.5 flex items-center justify-between">
                           <span className="text-xs font-semibold text-slate-700">Number of days</span>
-                          <span className="text-[11px] font-bold text-slate-500">out of {yearDays}</span>
+                          <button
+                            type="button"
+                            onClick={() => updatePeriod(i, 'showDateHelper', !period.showDateHelper)}
+                            className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 hover:text-blue-900 transition underline underline-offset-2 cursor-pointer"
+                          >
+                            <span>📅</span>
+                            <span>{period.showDateHelper ? 'Hide dates' : 'Calculate from dates'}</span>
+                          </button>
                         </div>
                         <div className="relative">
                           <input
@@ -550,136 +543,6 @@ export function LoanLimitDaysView() {
                 );
               })}
             </div>
-          </div>
-
-          {/* Dedicated Standalone Date Range Days Calculator Card */}
-          <div className="rounded-2xl border border-blue-200 bg-gradient-to-b from-blue-50/50 to-white p-4 sm:p-5 shadow-sm">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-blue-100 pb-3">
-              <div className="flex items-center gap-2">
-                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 text-sm font-bold text-white shadow-sm shrink-0">
-                  📅
-                </span>
-                <div>
-                  <p className="font-bold text-sm sm:text-base text-slate-900">Date Range Days Calculator</p>
-                  <p className="text-xs text-slate-500">Calculate exact calendar days between two dates</p>
-                </div>
-              </div>
-              <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-800">
-                Exact Calendar Math
-              </span>
-            </div>
-
-            {/* Date Inputs */}
-            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
-              <label className="block">
-                <span className="mb-1 block text-xs font-semibold text-slate-700">Start date</span>
-                <input
-                  type="date"
-                  value={calcStartDate}
-                  onChange={(e) => setCalcStartDate(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-base sm:text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                />
-              </label>
-              <label className="block">
-                <span className="mb-1 block text-xs font-semibold text-slate-700">End date</span>
-                <input
-                  type="date"
-                  value={calcEndDate}
-                  onChange={(e) => setCalcEndDate(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-base sm:text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                />
-              </label>
-            </div>
-
-            {/* Counting Option & Presets */}
-            <div className="mt-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
-              <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={isInclusive}
-                  onChange={(e) => setIsInclusive(e.target.checked)}
-                  className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                />
-                <span>Include both start & end dates (standard)</span>
-              </label>
-
-              {/* Quick Preset Buttons */}
-              <div className="flex flex-wrap items-center gap-1">
-                <span className="text-[11px] font-semibold text-slate-500 mr-0.5">Presets:</span>
-                {['Q1', 'Q2', 'Q3', 'Q4', 'H1', 'H2', 'FY'].map((q) => (
-                  <button
-                    key={q}
-                    type="button"
-                    onClick={() => applyQuarterPreset(q)}
-                    className="rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-bold text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition"
-                  >
-                    {q}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Calculation Result & Apply Action */}
-            {dateDiffResult && (
-              <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50/70 p-3.5">
-                {dateDiffResult.error ? (
-                  <p className="text-xs font-semibold text-rose-600">{dateDiffResult.error}</p>
-                ) : (
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <div className="flex flex-wrap items-baseline gap-2">
-                        <span className="text-2xl sm:text-3xl font-black text-blue-700">
-                          {dateDiffResult.days}
-                        </span>
-                        <span className="text-sm font-bold text-slate-700">days</span>
-                        <span className="text-xs font-medium text-slate-500">
-                          ({((dateDiffResult.days / yearDays) * 100).toFixed(1)}% of {yearDays} days)
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-600 mt-0.5 break-words">
-                        {dateDiffResult.startFormatted} → {dateDiffResult.endFormatted}{' '}
-                        {isInclusive ? '(inclusive)' : '(exclusive of end day)'}
-                      </p>
-                      {dateDiffResult.includesLeapDay && (
-                        <p className="mt-1 text-[11px] font-semibold text-blue-800">
-                          ℹ️ Spans Feb 29 (Leap Day detected)
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-                      {periods.length > 1 ? (
-                        <select
-                          value={selectedTargetLoanIndex}
-                          onChange={(e) => setSelectedTargetLoanIndex(Number(e.target.value))}
-                          className="flex-1 sm:flex-none rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-800 outline-none"
-                        >
-                          {periods.map((p, idx) => (
-                            <option key={p.id || idx} value={idx}>
-                              Apply to {p.name}
-                            </option>
-                          ))}
-                        </select>
-                      ) : null}
-
-                      <button
-                        type="button"
-                        onClick={() => applyCalculatedDaysToLoan(selectedTargetLoanIndex)}
-                        className="flex-1 sm:flex-none rounded-lg bg-blue-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-blue-700 transition text-center"
-                      >
-                        ⚡ Apply to {periods[selectedTargetLoanIndex]?.name || 'Loan 1'}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {dateCalcFeedback && (
-              <p className="mt-2 text-center text-xs font-bold text-emerald-600 animate-fade-in">
-                {dateCalcFeedback}
-              </p>
-            )}
           </div>
         </div>
 
